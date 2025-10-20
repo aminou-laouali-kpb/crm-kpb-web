@@ -1,99 +1,103 @@
 import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
+import kpbLogo from '../../assets/kpb-logo.png';
 
 const Template1 = ({ data }) => {
-  const { billTo, shipTo, invoice, yourCompany, items, taxPercentage, taxAmount, subTotal, grandTotal, notes, selectedCurrency } = data;
+  const { 
+    clientInfo, 
+    invoice, 
+    service, 
+    paymentInfo, 
+    selectedCurrency,
+    grandTotal 
+  } = data;
 
   return (
     <BaseTemplate data={data}>
       <div className="bg-white p-8 max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        {/* Header with Logo */}
+        <div className="flex justify-between items-center mb-8 border-b-2 border-blue-600 pb-4">
+          <img src={kpbLogo} alt="KPB Education" className="h-20 w-20" />
           <div className="text-right">
-            <h2 className="text-3xl font-semibold">INVOICE</h2>
+            <h2 className="text-3xl font-bold text-blue-600">FACTURE</h2>
+            <p className="text-sm text-gray-600">KPB Education</p>
           </div>
         </div>
 
-        <div className="flex justify-between mb-12">
-          <div>
-            <h1 className="text-2xl font-bold">{yourCompany.name}</h1>
-            <p>{yourCompany.address}</p>
-            <p>{yourCompany.phone}</p>
-          </div>
-          <div>
-            <p>Invoice Number: {invoice.number}</p>
-            <p>Invoice Date: {invoice.date}</p>
-            <p>Due Date: {invoice.paymentDate}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-between mb-8">
-          <div>
-            <h3 className="font-semibold">Bill To:</h3>
-            <p>{billTo.name}</p>
-            <p>{billTo.address}</p>
-            <p>{billTo.phone}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold">Ship To:</h3>
-            <p>{shipTo.name}</p>
-            <p>{shipTo.address}</p>
-            <p>{shipTo.phone}</p>
-          </div>
-        </div>
-
-        <table className="w-full mb-8">
-          <thead>
-            <tr className="border-t border-b bg-gray-100">
-              <th className="p-2 text-left">Item</th>
-              <th className="p-2 text-center">Quantity</th>
-              <th className="p-2 text-right">Unit Price</th>
-              <th className="p-2 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={index} className="border-t-2 border-b-2 border-gray-800">
-                <td className="p-2">
-                  {item.name}
-                  <div className="text-sm text-gray-500">
-                    {item.description}
-                  </div>
-                </td>
-                <td className="p-2 text-right">{item.quantity}</td>
-                <td className="p-2 text-right">
-                  {formatCurrency(item.amount, selectedCurrency)}
-                </td>
-                <td className="p-2 text-right">
-                  {formatCurrency(item.total, selectedCurrency)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="flex justify-end">
-          <div className="w-1/3">
-            <div className="flex justify-between mb-2">
-              <span>Subtotal:</span>
-              <span>{formatCurrency(subTotal, selectedCurrency)}</span>
+        {/* Invoice Info */}
+        <div className="mb-8">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-semibold">Numéro de facture:</p>
+              <p className="text-gray-700">{invoice.number}</p>
             </div>
-            {taxPercentage > 0 && (
-              <div className="flex justify-between mb-2">
-                <span>Tax ({taxPercentage}%):</span>
-                <span>{formatCurrency(taxAmount, selectedCurrency)}</span>
+            <div>
+              <p className="font-semibold">Date:</p>
+              <p className="text-gray-700">{invoice.date}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Client Information */}
+        <div className="mb-8 bg-blue-50 p-4 rounded">
+          <h3 className="font-bold text-blue-600 mb-2">INFORMATIONS CLIENT</h3>
+          <p><span className="font-semibold">Nom:</span> {clientInfo.firstName} {clientInfo.lastName}</p>
+        </div>
+
+        {/* Service */}
+        <div className="mb-8">
+          <h3 className="font-bold text-blue-600 mb-2">SERVICE</h3>
+          <div className="border border-gray-300 p-4 rounded">
+            <p className="text-gray-700">{service}</p>
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="mb-8 bg-blue-600 text-white p-4 rounded">
+          <div className="flex justify-between items-center">
+            <span className="text-xl font-bold">MONTANT TOTAL:</span>
+            <span className="text-2xl font-bold">{formatCurrency(grandTotal, selectedCurrency)}</span>
+          </div>
+        </div>
+
+        {/* Payment Information */}
+        <div className="mb-8">
+          <h3 className="font-bold text-blue-600 mb-4">INFORMATIONS DE PAIEMENT</h3>
+          <div className="border-2 border-blue-200 p-4 rounded bg-blue-50">
+            {paymentInfo.type === 'USA' && (
+              <div>
+                <p className="font-semibold mb-2">Paiement aux USA via Moneygram/Western Union/Ria:</p>
+                <p><strong>Prénom:</strong> Idriss</p>
+                <p><strong>Nom:</strong> Laouali Abdou</p>
+                <p><strong>Adresse:</strong> Bellevue, Seattle, Washington, USA</p>
               </div>
             )}
-            <div className="flex justify-between font-bold">
-              <span>Total:</span>
-              <span>{formatCurrency(grandTotal, selectedCurrency)}</span>
-            </div>
+            {paymentInfo.type === 'Niamey' && (
+              <div>
+                <p className="font-semibold mb-2">Paiement à Niamey via Moneygram/Western Union/Ria:</p>
+                <p><strong>Prénom:</strong> Judicael Mahoutin</p>
+                <p><strong>Nom:</strong> Djidonou</p>
+                <p><strong>Adresse:</strong> Niamey - Niger</p>
+              </div>
+            )}
+            {paymentInfo.type === 'France' && (
+              <div>
+                <p className="font-semibold mb-2">Paiement en France via Virement bancaire:</p>
+                <p><strong>Prénom:</strong> Idriss</p>
+                <p><strong>Nom:</strong> Laouali Abdou</p>
+                <p><strong>IBAN:</strong> FR76 1695 8000 0185 1038 3000 480</p>
+                <p><strong>BIC/SWIFT:</strong> QNTOFRP1XXX</p>
+                <p><strong>BIC/SWIFT banque correspondante:</strong> BNPAFRPP</p>
+                <p><strong>Adresse du titulaire:</strong> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="mt-8">
-          <h3 className="font-semibold mb-2">Notes:</h3>
-          <p>{notes}</p>
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-gray-600 border-t pt-4">
+          <p>Merci de votre confiance - KPB Education</p>
         </div>
       </div>
     </BaseTemplate>

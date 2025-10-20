@@ -29,42 +29,23 @@ export const generatePDF = async (invoiceData, templateNumber) => {
       const pdf = new jsPDF('p', 'mm', 'a4');
       
       pdf.addImage(imgData, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
-      const { number, date, paymentDate } = invoiceData.invoice;
-      const { name: companyName } = invoiceData.yourCompany;
-      const { name: billToName } = invoiceData.billTo;
+      const { number, date } = invoiceData.invoice;
+      const { firstName, lastName } = invoiceData.clientInfo;
       const timestamp = new Date().getTime();
 
       let fileName;
       switch (templateNumber) {
         case 1:
-          fileName = `${number}.pdf`;
+          fileName = `Facture_KPB_${number}.pdf`;
           break;
         case 2:
-          fileName = `${companyName}_${number}.pdf`;
+          fileName = `KPB_${firstName}_${lastName}_${number}.pdf`;
           break;
         case 3:
-          fileName = `${companyName}.pdf`;
-          break;
-        case 4:
-          fileName = `${date}.pdf`;
-          break;
-        case 5:
-          fileName = `${number}-${date}.pdf`;
-          break;
-        case 6:
-          fileName = `invoice_${timestamp}.pdf`;
-          break;
-        case 7:
-          fileName = `Invoice_${number}.pdf`;
-          break;
-        case 8:
-          fileName = `Invoice_${billToName}.pdf`;
-          break;
-        case 9:
-          fileName = `IN-${date}.pdf`;
+          fileName = `Facture_${number}_${date}.pdf`;
           break;
         default:
-          fileName = `invoice_template_${templateNumber}.pdf`;
+          fileName = `facture_kpb_${timestamp}.pdf`;
       }
 
       pdf.save(fileName);

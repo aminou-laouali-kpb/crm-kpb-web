@@ -48,23 +48,23 @@ const TemplatePage = () => {
   };
 
   if (!formData) {
-    return <div>Loading...</div>;
+    return <div>Chargement...</div>;
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <Button variant="ghost" onClick={handleBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          <ArrowLeft className="mr-2 h-4 w-4" /> Retour
         </Button>
         <Button onClick={handleDownloadPDF} disabled={isDownloading}>
           {isDownloading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Downloading...
+              Téléchargement...
             </>
           ) : (
-            "Download PDF"
+            "Télécharger PDF"
           )}
         </Button>
       </div>

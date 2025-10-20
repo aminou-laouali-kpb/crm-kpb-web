@@ -1,5 +1,8 @@
-export const formatCurrency = (amount, currencyCode = 'INR', minimumFractionDigits = 2) => {
-  const locale = currencyCode === 'USD' ? 'en-US' : 'en-IN';
+export const formatCurrency = (amount, currencyCode = 'XOF', minimumFractionDigits = 2) => {
+  let locale = 'fr-FR';
+  if (currencyCode === 'USD') locale = 'en-US';
+  else if (currencyCode === 'EUR') locale = 'fr-FR';
+  else if (currencyCode === 'XOF') locale = 'fr-FR';
   return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode, minimumFractionDigits }).format(amount);
 };
 
