@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search } from 'lucide-react';
@@ -46,6 +46,7 @@ const CRMPage = () => {
 
   const fetchInvoices = async () => {
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
@@ -63,6 +64,7 @@ const CRMPage = () => {
 
   const checkAndUpdateStaleInvoices = async () => {
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -93,6 +95,7 @@ const CRMPage = () => {
 
   const handleStatusChange = async (invoiceId, newStatus) => {
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase
         .from('invoices')
         .update({ status: newStatus })
