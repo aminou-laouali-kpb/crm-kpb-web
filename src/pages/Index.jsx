@@ -5,8 +5,11 @@ import FloatingLabelInput from '../components/FloatingLabelInput';
 import ClientInfoSection from '../components/ClientInfoSection';
 import ServiceSection from '../components/ServiceSection';
 import PaymentTypeSection from '../components/PaymentTypeSection';
+import SalesRepSection from '../components/SalesRepSection';
 import { templates } from "../utils/templateRegistry";
 import { FiEdit, FiTrash2 } from "react-icons/fi";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const generateRandomInvoiceNumber = () => {
   const length = Math.floor(Math.random() * 6) + 3;
@@ -29,13 +32,19 @@ const generateRandomInvoiceNumber = () => {
 const Index = () => {
   const navigate = useNavigate();
   const [selectedCurrency, setSelectedCurrency] = useState("XOF");
-  const [clientInfo, setClientInfo] = useState({ firstName: "", lastName: "" });
+  const [clientInfo, setClientInfo] = useState({ 
+    firstName: "", 
+    lastName: "",
+    email: "",
+    whatsapp: ""
+  });
   const [invoice, setInvoice] = useState({
     date: "",
     number: "",
   });
   const [service, setService] = useState("");
   const [paymentType, setPaymentType] = useState("USA");
+  const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState(0);
 
   useEffect(() => {
@@ -43,10 +52,11 @@ const Index = () => {
     const savedFormData = localStorage.getItem("formData");
     if (savedFormData) {
       const parsedData = JSON.parse(savedFormData);
-      setClientInfo(parsedData.clientInfo || { firstName: "", lastName: "" });
+      setClientInfo(parsedData.clientInfo || { firstName: "", lastName: "", email: "", whatsapp: "" });
       setInvoice(parsedData.invoice || { date: "", number: "" });
       setService(parsedData.service || "");
       setPaymentType(parsedData.paymentType || "USA");
+      setSalesRep(parsedData.salesRep || "");
       setGrandTotal(parsedData.grandTotal || 0);
       setSelectedCurrency(parsedData.selectedCurrency || "XOF");
     } else {
@@ -65,6 +75,7 @@ const Index = () => {
       invoice,
       service,
       paymentType,
+      salesRep,
       grandTotal,
       selectedCurrency,
     };
@@ -74,6 +85,7 @@ const Index = () => {
     invoice,
     service,
     paymentType,
+    salesRep,
     grandTotal,
     selectedCurrency,
   ]);
@@ -91,28 +103,91 @@ const Index = () => {
     setPaymentType(value);
   };
 
+  const handleSalesRepChange = (value) => {
+    setSalesRep(value);
+  };
+
   const handleTotalChange = (e) => {
     setGrandTotal(parseFloat(e.target.value) || 0);
   };
 
-  const handleTemplateClick = (templateNumber) => {
-    const formData = {
-      clientInfo,
-      invoice,
-      service,
-      paymentInfo: { type: paymentType },
-      grandTotal,
-      selectedCurrency,
-    };
-    navigate("/template", {
-      state: { formData, selectedTemplate: templateNumber },
-    });
+  const handleTemplateClick = async (templateNumber) => {
+    // Validation
+    if (!clientInfo.firstName || !clientInfo.lastName) {
+      toast.error("Veuillez renseigner le prénom et le nom du client");
+      return;
+    }
+    if (!clientInfo.email || !clientInfo.whatsapp) {
+      toast.error("Veuillez renseigner l'email et le WhatsApp du client");
+      return;
+    }
+    if (!service) {
+      toast.error("Veuillez renseigner le service");
+      return;
+    }
+    if (!salesRep) {
+      toast.error("Veuillez sélectionner un commercial");
+      return;
+    }
+    if (!invoice.date || !invoice.number) {
+      toast.error("Veuillez renseigner la date et le numéro de facture");
+      return;
+    }
+    if (grandTotal <= 0) {
+      toast.error("Le montant total doit être supérieur à 0");
+      return;
+    }
+
+    // Save to database
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert({
+          invoice_number: invoice.number,
+          invoice_date: invoice.date,
+          client_first_name: clientInfo.firstName,
+          client_last_name: clientInfo.lastName,
+          client_email: clientInfo.email,
+          client_whatsapp: clientInfo.whatsapp,
+          service_description: service,
+          amount: grandTotal,
+          currency: selectedCurrency,
+          payment_type: paymentType,
+          sales_representative: salesRep,
+          template_number: templateNumber,
+          status: 'generated'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Facture enregistrée avec succès!");
+
+      const formData = {
+        clientInfo,
+        invoice,
+        service,
+        paymentInfo: { type: paymentType },
+        salesRep,
+        grandTotal,
+        selectedCurrency,
+      };
+      navigate("/template", {
+        state: { formData, selectedTemplate: templateNumber, invoiceId: data.id },
+      });
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+      toast.error("Erreur lors de l'enregistrement de la facture");
+    }
   };
 
   const fillDummyData = () => {
     setClientInfo({
       firstName: "Jean",
       lastName: "Dupont",
+      email: "jean.dupont@example.com",
+      whatsapp: "+33612345678"
     });
     setInvoice({
       date: new Date().toISOString().split("T")[0],
@@ -120,24 +195,31 @@ const Index = () => {
     });
     setService("Formation en développement web - Programme complet de 6 mois incluant HTML, CSS, JavaScript, React et Node.js");
     setPaymentType("France");
+    setSalesRep("Josphin");
     setGrandTotal(1500);
   };
 
   const clearForm = () => {
-    setClientInfo({ firstName: "", lastName: "" });
+    setClientInfo({ firstName: "", lastName: "", email: "", whatsapp: "" });
     setInvoice({
       date: "",
       number: generateRandomInvoiceNumber(),
     });
     setService("");
     setPaymentType("USA");
+    setSalesRep("");
     setGrandTotal(0);
     localStorage.removeItem("formData");
   };
 
   return (
     <div className="container mx-auto px-4 py-8 relative">
-      <h1 className="text-3xl font-bold mb-8 text-center">Générateur de Factures KPB Education</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-center flex-1">Générateur de Factures KPB Education</h1>
+        <Button variant="outline" onClick={() => navigate('/crm')}>
+          Voir le CRM
+        </Button>
+      </div>
       
       <div className="fixed top-4 left-4 flex gap-2">
         <button
@@ -213,6 +295,11 @@ const Index = () => {
             <PaymentTypeSection 
               paymentType={paymentType}
               handlePaymentTypeChange={handlePaymentTypeChange}
+            />
+
+            <SalesRepSection 
+              salesRep={salesRep}
+              handleSalesRepChange={handleSalesRepChange}
             />
           </form>
         </div>

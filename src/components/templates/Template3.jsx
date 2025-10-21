@@ -2,6 +2,7 @@ import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
 import kpbLogo from '../../assets/kpb-logo.png';
+import kpbStamp from '../../assets/kpb-stamp.png';
 
 const Template3 = ({ data }) => {
   const { 
@@ -9,6 +10,7 @@ const Template3 = ({ data }) => {
     invoice, 
     service, 
     paymentInfo, 
+    salesRep,
     selectedCurrency,
     grandTotal 
   } = data;
@@ -40,6 +42,9 @@ const Template3 = ({ data }) => {
           <div className="border-l-4 border-blue-600 pl-4">
             <p className="text-xs text-gray-500 uppercase mb-1">Facturé à</p>
             <p className="text-lg font-semibold">{clientInfo.firstName} {clientInfo.lastName}</p>
+            <p className="text-xs text-gray-600">{clientInfo.email}</p>
+            <p className="text-xs text-gray-600">{clientInfo.whatsapp}</p>
+            <p className="text-xs text-gray-600">Commercial: {salesRep}</p>
           </div>
         </div>
 
@@ -119,8 +124,12 @@ const Template3 = ({ data }) => {
 
         {/* Footer */}
         <div className="mt-12 pt-6 border-t text-center text-xs text-gray-500">
+          <div className="flex justify-center mb-4">
+            <img src={kpbStamp} alt="Cachet KPB Education" className="h-32" />
+          </div>
           <p>Merci de votre confiance et de votre paiement rapide</p>
           <p className="font-semibold mt-1">KPB Education © 2025 - Tous droits réservés</p>
+          <p className="mt-2">SIRET: 851 365 908 00025 - 8 Rue André Vasseur, 31200 Toulouse</p>
         </div>
       </div>
     </BaseTemplate>

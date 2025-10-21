@@ -44,6 +44,22 @@ const ClientInfoSection = ({ clientInfo, handleInputChange, selectedCurrency, se
           onChange={handleInputChange}
           name="lastName"
         />
+        <FloatingLabelInput
+          id="clientEmail"
+          label="Email"
+          type="email"
+          value={clientInfo.email}
+          onChange={handleInputChange}
+          name="email"
+        />
+        <FloatingLabelInput
+          id="clientWhatsapp"
+          label="Numéro WhatsApp"
+          type="tel"
+          value={clientInfo.whatsapp}
+          onChange={handleInputChange}
+          name="whatsapp"
+        />
       </div>
     </div>
   );
