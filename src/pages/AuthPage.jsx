@@ -88,7 +88,10 @@ const AuthPage = () => {
           .insert({ user_id: data.user.id, role: 'sales_rep' });
         
         if (roleError) {
-          console.error('Role assignment error:', roleError);
+          if (import.meta.env.DEV) {
+            console.error('Role assignment error:', roleError);
+          }
+          toast.error("Account created, but role assignment failed. Please contact support.");
         }
       }
 

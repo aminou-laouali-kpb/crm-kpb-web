@@ -56,7 +56,9 @@ const CRMPage = () => {
       if (error) throw error;
       setInvoices(data || []);
     } catch (error) {
-      console.error('Error fetching invoices:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching invoices:', error);
+      }
       toast.error("Erreur lors du chargement des factures");
     } finally {
       setLoading(false);
@@ -90,7 +92,9 @@ const CRMPage = () => {
         fetchInvoices();
       }
     } catch (error) {
-      console.error('Error updating stale invoices:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error updating stale invoices:', error);
+      }
     }
   };
 
@@ -107,7 +111,9 @@ const CRMPage = () => {
       toast.success("Statut mis à jour avec succès");
       fetchInvoices();
     } catch (error) {
-      console.error('Error updating status:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error updating status:', error);
+      }
       toast.error("Erreur lors de la mise à jour du statut");
     }
   };
