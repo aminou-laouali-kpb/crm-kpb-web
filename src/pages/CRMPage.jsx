@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import { toast } from "sonner";
+import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -31,6 +31,7 @@ const statusColors = {
 
 const CRMPage = () => {
   const navigate = useNavigate();
+  const { loading: authLoading } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -129,7 +130,7 @@ const CRMPage = () => {
     return matchesSearch && matchesSalesRep && matchesStatus;
   });
 
-  if (loading) {
+  if (authLoading || loading) {
     return <div className="container mx-auto px-4 py-8">Chargement...</div>;
   }
 

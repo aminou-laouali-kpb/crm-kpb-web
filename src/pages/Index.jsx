@@ -9,7 +9,9 @@ import SalesRepSection from '../components/SalesRepSection';
 import { templates } from "../utils/templateRegistry";
 import { FiEdit, FiTrash2 } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
+import { LogOut } from 'lucide-react';
 import { toast } from "sonner";
+import { useAuth } from '../hooks/useAuth';
 
 const generateRandomInvoiceNumber = () => {
   const length = Math.floor(Math.random() * 6) + 3;
@@ -31,6 +33,7 @@ const generateRandomInvoiceNumber = () => {
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [selectedCurrency, setSelectedCurrency] = useState("XOF");
   const [clientInfo, setClientInfo] = useState({ 
     firstName: "", 
@@ -138,6 +141,12 @@ const Index = () => {
       return;
     }
 
+    if (!user) {
+      toast.error("Vous devez être connecté pour créer des factures");
+      navigate('/auth');
+      return;
+    }
+
     // Save to database
     try {
       const { supabase } = await import("@/integrations/supabase/client");
@@ -178,7 +187,6 @@ const Index = () => {
         state: { formData, selectedTemplate: templateNumber, invoiceId: data.id },
       });
     } catch (error) {
-      console.error('Error saving invoice:', error);
       toast.error("Erreur lors de l'enregistrement de la facture");
     }
   };
@@ -200,6 +208,10 @@ const Index = () => {
     setGrandTotal(1500);
   };
 
+  if (authLoading) {
+    return <div className="container mx-auto px-4 py-8">Loading...</div>;
+  }
+
   const clearForm = () => {
     setClientInfo({ firstName: "", lastName: "", email: "", whatsapp: "" });
     setInvoice({
@@ -217,9 +229,15 @@ const Index = () => {
     <div className="container mx-auto px-4 py-8 relative">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-center flex-1">Générateur de Factures KPB Education</h1>
-        <Button variant="outline" onClick={() => navigate('/crm')}>
-          Voir le CRM
-        </Button>
+        <div className="flex gap-2 items-center">
+          <span className="text-sm text-gray-600">{user?.email}</span>
+          <Button variant="ghost" size="sm" onClick={signOut}>
+            <LogOut className="h-4 w-4 mr-2" /> Déconnexion
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/crm')}>
+            Voir le CRM
+          </Button>
+        </div>
       </div>
       
       <div className="fixed top-4 left-4 flex gap-2">

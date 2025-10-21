@@ -9,6 +9,7 @@ const ReceiptPage = lazy(() => import('./pages/ReceiptPage'));
 const CRMPage = lazy(() => import('./pages/CRMPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const Index = lazy(() => import('./pages/Index'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
         <Suspense fallback={<div>Chargement...</div>}>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/template" element={<TemplatePage />} />
             <Route path="/receipt" element={<ReceiptPage />} />
             <Route path="/crm" element={<CRMPage />} />
