@@ -8,7 +8,7 @@ import PaymentTypeSection from '../components/PaymentTypeSection';
 import SalesRepSection from '../components/SalesRepSection';
 import { templates } from "../utils/templateRegistry";
 import { FiEdit, FiTrash2 } from "react-icons/fi";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const generateRandomInvoiceNumber = () => {
@@ -140,6 +140,7 @@ const Index = () => {
 
     // Save to database
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase
         .from('invoices')
         .insert({
