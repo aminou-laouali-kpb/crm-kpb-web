@@ -21,7 +21,19 @@ const TemplatePage = () => {
       // If no form data in location state, try to load from localStorage
       const savedFormData = localStorage.getItem('formData');
       if (savedFormData) {
-        setFormData(JSON.parse(savedFormData));
+        const parsedData = JSON.parse(savedFormData);
+        // Ensure paymentInfo exists with correct structure
+        const formattedData = {
+          ...parsedData,
+          paymentInfo: parsedData.paymentInfo || { type: parsedData.paymentType || 'USA' },
+          clientInfo: parsedData.clientInfo || { firstName: '', lastName: '', email: '', whatsapp: '' },
+          invoice: parsedData.invoice || { date: '', number: '' },
+          service: parsedData.service || '',
+          salesRep: parsedData.salesRep || '',
+          selectedCurrency: parsedData.selectedCurrency || 'XOF',
+          grandTotal: parsedData.grandTotal || 0
+        };
+        setFormData(formattedData);
       }
     }
   }, [location.state]);

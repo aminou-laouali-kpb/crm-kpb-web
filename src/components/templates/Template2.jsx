@@ -4,15 +4,15 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import kpbLogo from '../../assets/kpb-logo.png';
 import kpbStamp from '../../assets/kpb-stamp.png';
 
-const Template2 = ({ data }) => {
+const Template2 = ({ data = {} }) => {
   const { 
-    clientInfo, 
-    invoice, 
-    service, 
-    paymentInfo, 
-    salesRep,
-    selectedCurrency,
-    grandTotal 
+    clientInfo = { firstName: '', lastName: '', email: '', whatsapp: '' }, 
+    invoice = { date: '', number: '' }, 
+    service = '', 
+    paymentInfo = { type: 'USA' }, 
+    salesRep = '',
+    selectedCurrency = 'XOF',
+    grandTotal = 0
   } = data;
 
   return (
