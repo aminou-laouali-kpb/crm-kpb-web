@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Pencil, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
   Select,
@@ -12,6 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const statusLabels = {
   generated: 'Facture générée',
@@ -37,6 +56,16 @@ const CRMPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSalesRep, setFilterSalesRep] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [editForm, setEditForm] = useState({
+    client_first_name: '',
+    client_last_name: '',
+    client_email: '',
+    client_whatsapp: '',
+    amount: ''
+  });
 
   useEffect(() => {
     fetchInvoices();
@@ -115,6 +144,71 @@ const CRMPage = () => {
         console.error('Error updating status:', error);
       }
       toast.error("Erreur lors de la mise à jour du statut");
+    }
+  };
+
+  const handleEditClick = (invoice) => {
+    setSelectedInvoice(invoice);
+    setEditForm({
+      client_first_name: invoice.client_first_name,
+      client_last_name: invoice.client_last_name,
+      client_email: invoice.client_email,
+      client_whatsapp: invoice.client_whatsapp,
+      amount: invoice.amount
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          client_first_name: editForm.client_first_name,
+          client_last_name: editForm.client_last_name,
+          client_email: editForm.client_email,
+          client_whatsapp: editForm.client_whatsapp,
+          amount: parseFloat(editForm.amount)
+        })
+        .eq('id', selectedInvoice.id);
+
+      if (error) throw error;
+
+      toast.success("Facture modifiée avec succès");
+      setEditDialogOpen(false);
+      fetchInvoices();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('Error updating invoice:', error);
+      }
+      toast.error("Erreur lors de la modification de la facture");
+    }
+  };
+
+  const handleDeleteClick = (invoice) => {
+    setSelectedInvoice(invoice);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', selectedInvoice.id);
+
+      if (error) throw error;
+
+      toast.success("Facture supprimée avec succès");
+      setDeleteDialogOpen(false);
+      fetchInvoices();
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('Error deleting invoice:', error);
+      }
+      toast.error("Erreur lors de la suppression de la facture");
     }
   };
 
@@ -223,6 +317,9 @@ const CRMPage = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Statut
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -271,6 +368,24 @@ const CRMPage = () => {
                       </SelectContent>
                     </Select>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditClick(invoice)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(invoice)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -283,6 +398,90 @@ const CRMPage = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Modifier la facture</DialogTitle>
+            <DialogDescription>
+              Modifiez les informations du client et de la facture
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="first_name">Prénom</Label>
+              <Input
+                id="first_name"
+                value={editForm.client_first_name}
+                onChange={(e) => setEditForm({ ...editForm, client_first_name: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="last_name">Nom</Label>
+              <Input
+                id="last_name"
+                value={editForm.client_last_name}
+                onChange={(e) => setEditForm({ ...editForm, client_last_name: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={editForm.client_email}
+                onChange={(e) => setEditForm({ ...editForm, client_email: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Input
+                id="whatsapp"
+                value={editForm.client_whatsapp}
+                onChange={(e) => setEditForm({ ...editForm, client_whatsapp: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="amount">Montant</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                value={editForm.amount}
+                onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleEditSubmit}>
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer la facture {selectedInvoice?.invoice_number} ?
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
