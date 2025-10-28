@@ -12,6 +12,16 @@ const PaymentTypeSection = ({ paymentType, handlePaymentTypeChange }) => {
         className="space-y-3"
       >
         <div className="flex items-start space-x-3 p-3 border border-gray-200 rounded-md hover:border-blue-500 transition-colors">
+          <RadioGroupItem value="All" id="all" className="mt-1" />
+          <Label htmlFor="all" className="cursor-pointer flex-1">
+            <div className="font-semibold">Tous les modes de paiement</div>
+            <div className="text-sm text-gray-600 mt-1">
+              Afficher toutes les options de paiement disponibles
+            </div>
+          </Label>
+        </div>
+
+        <div className="flex items-start space-x-3 p-3 border border-gray-200 rounded-md hover:border-blue-500 transition-colors">
           <RadioGroupItem value="USA" id="usa" className="mt-1" />
           <Label htmlFor="usa" className="cursor-pointer flex-1">
             <div className="font-semibold">Paiement aux USA</div>
