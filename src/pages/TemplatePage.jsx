@@ -51,7 +51,8 @@ const TemplatePage = () => {
         toast.success("PDF généré avec succès");
       } catch (error) {
         console.error('Error generating PDF:', error);
-        toast.error("Échec de génération du PDF. Réessayez.");
+        const errorMessage = error.message || "Échec de génération du PDF. Réessayez.";
+        toast.error(errorMessage);
       } finally {
         setIsDownloading(false);
       }
