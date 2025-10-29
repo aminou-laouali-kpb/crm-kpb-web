@@ -22,7 +22,7 @@ export const generatePDF = async (invoiceData, templateNumber) => {
       console.log('Capturing invoice with html2canvas...');
       
       const canvas = await html2canvas(existingInvoice, {
-        scale: Math.min(2, window.devicePixelRatio || 1.5),
+        scale: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : Math.min(2, window.devicePixelRatio || 1.5),
         useCORS: true,
         logging: false,
         allowTaint: true,
@@ -59,14 +59,29 @@ export const generatePDF = async (invoiceData, templateNumber) => {
 
       console.log('Downloading PDF:', fileName);
       
-      // iOS/Safari-friendly download handling
+      // Robust mobile download handling
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-      if (isIOS) {
-        const blobUrl = pdf.output('bloburl');
-        window.open(blobUrl, '_blank');
-      } else {
+      try {
+        const blob = pdf.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+
+        if (isIOS) {
+          // iOS Safari: navigate to the blob URL in same tab to avoid popup blocking
+          window.location.href = blobUrl;
+        } else {
+          // Other browsers: programmatically click a hidden anchor to trigger download
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        }
+      } catch (e) {
+        console.warn('Primary download method failed, falling back to pdf.save', e);
         pdf.save(fileName);
       }
       
