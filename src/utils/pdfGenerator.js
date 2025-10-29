@@ -4,25 +4,22 @@ import jsPDF from 'jspdf';
 export const generatePDF = async (invoiceData, templateNumber) => {
   return new Promise(async (resolve, reject) => {
     try {
-      const invoice = document.createElement('div');
-      document.body.appendChild(invoice);
+      // Find the existing invoice element on the page instead of creating a new one
+      const existingInvoice = document.querySelector('.w-\\[210mm\\].h-\\[297mm\\]');
       
-      // Render the InvoiceTemplate component to a string
-      const InvoiceTemplate = (await import('../components/InvoiceTemplate')).default;
-      const ReactDOMServer = (await import('react-dom/server')).default;
-      const React = (await import('react')).default;
+      if (!existingInvoice) {
+        throw new Error('Invoice element not found');
+      }
+
+      // Wait a bit to ensure all content is fully rendered
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      const invoiceElement = React.createElement(InvoiceTemplate, { data: invoiceData, templateNumber });
-      const invoiceHTML = ReactDOMServer.renderToString(invoiceElement);
-      
-      invoice.innerHTML = invoiceHTML;
-      invoice.style.width = '210mm';
-      invoice.style.height = '297mm';
-      
-      const canvas = await html2canvas(invoice, {
+      const canvas = await html2canvas(existingInvoice, {
         scale: 2,
         useCORS: true,
         logging: false,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -50,7 +47,6 @@ export const generatePDF = async (invoiceData, templateNumber) => {
 
       pdf.save(fileName);
       
-      document.body.removeChild(invoice);
       resolve();
     } catch (error) {
       reject(error);
