@@ -17,16 +17,16 @@ const Template2 = ({ data = {} }) => {
 
   return (
     <BaseTemplate data={data}>
-      <div className="bg-gradient-to-br from-blue-50 to-white p-8 max-w-4xl mx-auto">
+      <div className="bg-gradient-to-br from-blue-50 to-white p-4 max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <img src={kpbLogo} alt="KPB Education" className="h-24 w-24 mx-auto mb-4" />
           <h1 className="text-4xl font-bold text-blue-600">KPB Education</h1>
           <h2 className="text-2xl font-semibold text-gray-700 mt-2">FACTURE</h2>
         </div>
 
         {/* Invoice Details */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-4 mb-4">
           <div className="flex justify-between mb-4">
             <div>
               <p className="text-sm text-gray-600">Numéro de facture</p>
@@ -48,13 +48,13 @@ const Template2 = ({ data = {} }) => {
         </div>
 
         {/* Service Section */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-4 mb-4">
           <h3 className="text-lg font-bold text-blue-600 mb-3">Service fourni</h3>
           <p className="text-gray-700 bg-blue-50 p-4 rounded">{service}</p>
         </div>
 
         {/* Amount */}
-        <div className="bg-blue-600 text-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-blue-600 text-white rounded-lg shadow-lg p-4 mb-4">
           <div className="flex justify-between items-center">
             <span className="text-lg">Montant à payer</span>
             <span className="text-3xl font-bold">{formatCurrency(grandTotal, selectedCurrency)}</span>
@@ -62,35 +62,35 @@ const Template2 = ({ data = {} }) => {
         </div>
 
         {/* Payment Information */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-bold text-blue-600 mb-4">Modalités de paiement</h3>
-          <div className="bg-gray-50 p-4 rounded border-l-4 border-blue-600 space-y-4">
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <h3 className="text-lg font-bold text-blue-600 mb-2">Modalités de paiement</h3>
+          <div className="bg-gray-50 p-3 rounded border-l-4 border-blue-600 space-y-2">
             {(paymentInfo.type === 'USA' || paymentInfo.type === 'All') && (
-              <div className="space-y-1">
-                <p className="font-semibold text-blue-600">💳 Paiement aux USA</p>
-                <p className="text-sm">Via Moneygram / Western Union / Ria</p>
-                <div className="mt-2 space-y-1">
-                  <p><span className="font-medium">Prénom:</span> Idriss</p>
-                  <p><span className="font-medium">Nom:</span> Laouali Abdou</p>
-                  <p><span className="font-medium">Adresse:</span> Bellevue, Seattle, Washington, USA</p>
+              <div className="space-y-0.5">
+                <p className="font-semibold text-blue-600 text-xs">💳 Paiement aux USA</p>
+                <p className="text-xs">Via Moneygram / Western Union / Ria</p>
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-xs"><span className="font-medium">Prénom:</span> Idriss</p>
+                  <p className="text-xs"><span className="font-medium">Nom:</span> Laouali Abdou</p>
+                  <p className="text-xs"><span className="font-medium">Adresse:</span> Bellevue, Seattle, Washington, USA</p>
                 </div>
               </div>
             )}
             {(paymentInfo.type === 'Niamey' || paymentInfo.type === 'All') && (
-              <div className={paymentInfo.type === 'All' ? 'space-y-1 pt-4 border-t border-gray-300' : 'space-y-1'}>
-                <p className="font-semibold text-blue-600">💳 Paiement à Niamey</p>
-                <p className="text-sm">Via Moneygram / Western Union / Ria</p>
-                <div className="mt-2 space-y-1">
-                  <p><span className="font-medium">Prénom:</span> Judicael Mahoutin</p>
-                  <p><span className="font-medium">Nom:</span> Djidonou</p>
-                  <p><span className="font-medium">Adresse:</span> Niamey - Niger</p>
+              <div className={paymentInfo.type === 'All' ? 'space-y-0.5 pt-2 border-t border-gray-300' : 'space-y-0.5'}>
+                <p className="font-semibold text-blue-600 text-xs">💳 Paiement à Niamey</p>
+                <p className="text-xs">Via Moneygram / Western Union / Ria</p>
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-xs"><span className="font-medium">Prénom:</span> Judicael Mahoutin</p>
+                  <p className="text-xs"><span className="font-medium">Nom:</span> Djidonou</p>
+                  <p className="text-xs"><span className="font-medium">Adresse:</span> Niamey - Niger</p>
                 </div>
               </div>
             )}
             {(paymentInfo.type === 'France' || paymentInfo.type === 'All') && (
-              <div className={paymentInfo.type === 'All' ? 'space-y-1 pt-4 border-t border-gray-300' : 'space-y-1'}>
-                <p className="font-semibold text-blue-600">🏦 Virement bancaire en France</p>
-                <div className="mt-2 space-y-1 text-sm">
+              <div className={paymentInfo.type === 'All' ? 'space-y-0.5 pt-2 border-t border-gray-300' : 'space-y-0.5'}>
+                <p className="font-semibold text-blue-600 text-xs">🏦 Virement bancaire en France</p>
+                <div className="mt-1 space-y-0.5 text-xs">
                   <p><span className="font-medium">Titulaire:</span> Idriss Laouali Abdou</p>
                   <p><span className="font-medium">IBAN:</span> FR76 1695 8000 0185 1038 3000 480</p>
                   <p><span className="font-medium">BIC/SWIFT:</span> QNTOFRP1XXX</p>
@@ -103,9 +103,9 @@ const Template2 = ({ data = {} }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-600">
-          <div className="flex justify-center mb-4">
-            <img src={kpbStamp} alt="Cachet KPB Education" className="h-32" />
+        <div className="mt-4 text-center text-sm text-gray-600">
+          <div className="flex justify-center mb-2">
+            <img src={kpbStamp} alt="Cachet KPB Education" className="h-24" />
           </div>
           <p>Merci pour votre confiance</p>
           <p className="font-semibold">KPB Education - Votre partenaire éducatif</p>

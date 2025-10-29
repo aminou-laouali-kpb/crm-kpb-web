@@ -17,9 +17,9 @@ const Template3 = ({ data = {} }) => {
 
   return (
     <BaseTemplate data={data}>
-      <div className="bg-white p-8 max-w-4xl mx-auto">
+      <div className="bg-white p-4 max-w-4xl mx-auto">
         {/* Header with Logo and Title Side by Side */}
-        <div className="flex items-start justify-between mb-8 pb-6 border-b-4 border-blue-600">
+        <div className="flex items-start justify-between mb-4 pb-3 border-b-4 border-blue-600">
           <div className="flex items-center gap-4">
             <img src={kpbLogo} alt="KPB Education" className="h-16 w-16" />
             <div>
@@ -34,7 +34,7 @@ const Template3 = ({ data = {} }) => {
         </div>
 
         {/* Date and Client Info in Grid */}
-        <div className="grid grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="border-l-4 border-blue-600 pl-4">
             <p className="text-xs text-gray-500 uppercase mb-1">Date d'émission</p>
             <p className="text-lg font-semibold">{invoice.date}</p>
@@ -49,7 +49,7 @@ const Template3 = ({ data = {} }) => {
         </div>
 
         {/* Service Details */}
-        <div className="mb-8">
+        <div className="mb-4">
           <div className="bg-blue-600 text-white px-4 py-2 font-bold mb-2">
             DÉTAILS DU SERVICE
           </div>
@@ -59,7 +59,7 @@ const Template3 = ({ data = {} }) => {
         </div>
 
         {/* Total Amount Box */}
-        <div className="mb-8 flex justify-end">
+        <div className="mb-4 flex justify-end">
           <div className="w-80 border-2 border-blue-600">
             <div className="bg-blue-600 text-white px-4 py-2">
               <p className="text-sm uppercase">Montant total à régler</p>
@@ -73,17 +73,17 @@ const Template3 = ({ data = {} }) => {
         </div>
 
         {/* Payment Instructions */}
-        <div className="mb-6">
-          <div className="bg-gray-100 px-4 py-2 font-bold border-l-4 border-blue-600 mb-3">
+        <div className="mb-4">
+          <div className="bg-gray-100 px-3 py-1.5 font-bold border-l-4 border-blue-600 mb-2">
             INSTRUCTIONS DE PAIEMENT
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-2">
             {(paymentInfo.type === 'USA' || paymentInfo.type === 'All') && (
-              <div className="pl-4 space-y-2">
-                <p className="font-semibold text-blue-600">📍 Paiement aux États-Unis</p>
-                <p className="text-sm text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-3 text-sm">
+              <div className="pl-3 space-y-1">
+                <p className="font-semibold text-blue-600 text-xs">📍 Paiement aux États-Unis</p>
+                <p className="text-xs text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1 text-xs">
                   <div><span className="font-medium">Prénom:</span></div>
                   <div>Idriss</div>
                   <div><span className="font-medium">Nom:</span></div>
@@ -95,10 +95,10 @@ const Template3 = ({ data = {} }) => {
             )}
 
             {(paymentInfo.type === 'Niamey' || paymentInfo.type === 'All') && (
-              <div className={paymentInfo.type === 'All' ? 'pl-4 space-y-2 pt-4 border-t border-gray-300' : 'pl-4 space-y-2'}>
-                <p className="font-semibold text-blue-600">📍 Paiement à Niamey</p>
-                <p className="text-sm text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-3 text-sm">
+              <div className={paymentInfo.type === 'All' ? 'pl-3 space-y-1 pt-2 border-t border-gray-300' : 'pl-3 space-y-1'}>
+                <p className="font-semibold text-blue-600 text-xs">📍 Paiement à Niamey</p>
+                <p className="text-xs text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1 text-xs">
                   <div><span className="font-medium">Prénom:</span></div>
                   <div>Judicael Mahoutin</div>
                   <div><span className="font-medium">Nom:</span></div>
@@ -110,9 +110,9 @@ const Template3 = ({ data = {} }) => {
             )}
 
             {(paymentInfo.type === 'France' || paymentInfo.type === 'All') && (
-              <div className={paymentInfo.type === 'All' ? 'pl-4 space-y-2 pt-4 border-t border-gray-300' : 'pl-4 space-y-2'}>
-                <p className="font-semibold text-blue-600">🏦 Virement bancaire en France</p>
-                <div className="mt-3 space-y-1 text-sm">
+              <div className={paymentInfo.type === 'All' ? 'pl-3 space-y-1 pt-2 border-t border-gray-300' : 'pl-3 space-y-1'}>
+                <p className="font-semibold text-blue-600 text-xs">🏦 Virement bancaire en France</p>
+                <div className="mt-1 space-y-0.5 text-xs">
                   <p><span className="font-medium">Titulaire du compte:</span> Idriss Laouali Abdou</p>
                   <p><span className="font-medium">IBAN:</span> FR76 1695 8000 0185 1038 3000 480</p>
                   <p><span className="font-medium">BIC/SWIFT:</span> QNTOFRP1XXX</p>
@@ -125,9 +125,9 @@ const Template3 = ({ data = {} }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 pt-6 border-t text-center text-xs text-gray-500">
-          <div className="flex justify-center mb-4">
-            <img src={kpbStamp} alt="Cachet KPB Education" className="h-32" />
+        <div className="mt-4 pt-3 border-t text-center text-xs text-gray-500">
+          <div className="flex justify-center mb-2">
+            <img src={kpbStamp} alt="Cachet KPB Education" className="h-24" />
           </div>
           <p>Merci de votre confiance et de votre paiement rapide</p>
           <p className="font-semibold mt-1">KPB Education © 2025 - Tous droits réservés</p>
