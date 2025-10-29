@@ -64,22 +64,35 @@ export const generatePDF = async (invoiceData, templateNumber) => {
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
       try {
-        const blob = pdf.output('blob');
+        const arrayBuffer = pdf.output('arraybuffer');
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
 
+        // Prefer native share sheet on mobile when available (best iOS experience)
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: fileName, text: 'Facture PDF' });
+          // Sharing opened; return after user completes action
+          return;
+        }
+
         if (isIOS) {
-          // iOS Safari: navigate to the blob URL in same tab to avoid popup blocking
+          // iOS: open in the same tab to avoid popup blocking; user can Save to Files
           window.location.href = blobUrl;
         } else {
-          // Other browsers: programmatically click a hidden anchor to trigger download
+          // Other browsers: force download via anchor element
           const link = document.createElement('a');
           link.href = blobUrl;
           link.download = fileName;
+          link.target = '_self';
+          link.rel = 'noopener noreferrer';
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
         }
+
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
       } catch (e) {
         console.warn('Primary download method failed, falling back to pdf.save', e);
         pdf.save(fileName);
