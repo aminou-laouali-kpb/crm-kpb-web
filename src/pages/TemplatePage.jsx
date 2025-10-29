@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import InvoiceTemplate from '../components/InvoiceTemplate';
 import { generatePDF } from '../utils/pdfGenerator';
 import { templates } from '../utils/templateRegistry';
@@ -47,8 +48,10 @@ const TemplatePage = () => {
       setIsDownloading(true);
       try {
         await generatePDF(formData, currentTemplate);
+        toast.success("PDF généré avec succès");
       } catch (error) {
         console.error('Error generating PDF:', error);
+        toast.error("Échec de génération du PDF. Réessayez.");
       } finally {
         setIsDownloading(false);
       }
@@ -99,8 +102,8 @@ const TemplatePage = () => {
         </div>
       </div>
 
-      <div className="w-full max-w-[210mm] mx-auto border shadow-lg overflow-auto">
-        <div className="min-w-[600px] md:min-w-0">
+      <div className="w-full max-w-[210mm] mx-auto border shadow-lg overflow-auto bg-white">
+        <div id="invoice-root" className="min-w-0 md:min-w-[600px]">
           <InvoiceTemplate data={formData} templateNumber={currentTemplate} />
         </div>
       </div>

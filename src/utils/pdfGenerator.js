@@ -4,22 +4,25 @@ import jsPDF from 'jspdf';
 export const generatePDF = async (invoiceData, templateNumber) => {
   return new Promise(async (resolve, reject) => {
     try {
-      // Find the existing invoice element on the page instead of creating a new one
-      const existingInvoice = document.querySelector('.w-\\[210mm\\].h-\\[297mm\\]');
+      // Use a robust selector for the rendered invoice element (mobile-safe)
+      const existingInvoice = document.getElementById('invoice-root');
       
       if (!existingInvoice) {
         throw new Error('Invoice element not found');
       }
 
-      // Wait a bit to ensure all content is fully rendered
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Short delay to ensure DOM is fully rendered (optimize for speed)
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const canvas = await html2canvas(existingInvoice, {
-        scale: 2,
+        scale: Math.min(2, window.devicePixelRatio || 1.5),
         useCORS: true,
         logging: false,
         allowTaint: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        scrollY: -window.scrollY,
+        windowWidth: existingInvoice.scrollWidth,
+        windowHeight: existingInvoice.scrollHeight
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -45,9 +48,17 @@ export const generatePDF = async (invoiceData, templateNumber) => {
           fileName = `facture_kpb_${timestamp}.pdf`;
       }
 
-      pdf.save(fileName);
+      // iOS/Safari-friendly download handling
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+      if (isIOS) {
+        const blobUrl = pdf.output('bloburl');
+        window.open(blobUrl, '_blank');
+      } else {
+        pdf.save(fileName);
+      }
       
-      resolve();
     } catch (error) {
       reject(error);
     }
