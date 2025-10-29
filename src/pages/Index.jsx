@@ -226,34 +226,36 @@ const Index = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 relative">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-center flex-1">Générateur de Factures KPB Education</h1>
-        <div className="flex gap-2 items-center">
-          <span className="text-sm text-gray-600">{user?.email}</span>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut className="h-4 w-4 mr-2" /> Déconnexion
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/crm')}>
-            Voir le CRM
-          </Button>
+    <div className="container mx-auto px-4 py-4 md:py-8 relative pb-20 md:pb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-8 gap-3">
+        <h1 className="text-xl md:text-3xl font-bold">Générateur de Factures KPB Education</h1>
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center w-full md:w-auto">
+          <span className="text-xs md:text-sm text-gray-600 truncate max-w-full">{user?.email}</span>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="ghost" size="sm" onClick={signOut} className="flex-1 sm:flex-none">
+              <LogOut className="h-4 w-4 md:mr-2" /> <span className="hidden sm:inline">Déconnexion</span>
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/crm')} className="flex-1 sm:flex-none text-xs md:text-sm">
+              CRM
+            </Button>
+          </div>
         </div>
       </div>
       
-      <div className="fixed top-4 left-4 flex gap-2">
+      <div className="fixed bottom-4 right-4 md:top-4 md:left-4 md:bottom-auto md:right-auto flex gap-2 z-50">
         <button
           onClick={clearForm}
-          className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600"
+          className="bg-red-500 text-white p-2 md:p-2 rounded-full shadow-lg hover:bg-red-600"
           aria-label="Effacer le formulaire"
         >
-          <FiTrash2 size={24} />
+          <FiTrash2 size={20} className="md:w-6 md:h-6" />
         </button>
         <button
           onClick={fillDummyData}
-          className="bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600"
+          className="bg-blue-500 text-white p-2 md:p-2 rounded-full shadow-lg hover:bg-blue-600"
           aria-label="Remplir avec des données test"
         >
-          <FiEdit size={24} />
+          <FiEdit size={20} className="md:w-6 md:h-6" />
         </button>
       </div>
 
@@ -324,16 +326,16 @@ const Index = () => {
         </div>
 
         <div className="w-full md:w-1/2">
-          <h2 className="text-2xl font-semibold mb-4">Choisir un modèle</h2>
-          <div className="grid grid-cols-1 gap-4">
+          <h2 className="text-xl md:text-2xl font-semibold mb-4">Choisir un modèle</h2>
+          <div className="grid grid-cols-1 gap-3 md:gap-4">
             {templates.map((template, index) => (
               <div
                 key={index}
-                className="cursor-pointer p-6 border-2 rounded-lg hover:border-blue-500 transition-all hover:shadow-lg bg-white"
+                className="cursor-pointer p-4 md:p-6 border-2 rounded-lg hover:border-blue-500 transition-all hover:shadow-lg bg-white"
                 onClick={() => handleTemplateClick(index + 1)}
               >
-                <h3 className="text-lg font-semibold text-blue-600">{template.name}</h3>
-                <p className="text-sm text-gray-600 mt-1">Cliquez pour prévisualiser et générer la facture</p>
+                <h3 className="text-base md:text-lg font-semibold text-blue-600">{template.name}</h3>
+                <p className="text-xs md:text-sm text-gray-600 mt-1">Cliquez pour générer la facture</p>
               </div>
             ))}
           </div>

@@ -117,18 +117,18 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <Button variant="ghost" onClick={() => navigate('/crm')}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Retour au CRM
+    <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="flex justify-between items-center mb-4 md:mb-8">
+        <Button variant="ghost" onClick={() => navigate('/crm')} size="sm">
+          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour au CRM</span>
         </Button>
       </div>
 
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Dashboard - Performances Commerciales</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3">
+        <h1 className="text-xl md:text-3xl font-bold">Dashboard - Performances</h1>
         
         <Select value={timeFilter} onValueChange={setTimeFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -141,41 +141,41 @@ const DashboardPage = () => {
       </div>
 
       {/* Overall Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Factures totales</h3>
-          <p className="text-3xl font-bold text-gray-900">{overallStats.totalInvoices}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+        <div className="bg-white p-3 md:p-6 rounded-lg shadow">
+          <h3 className="text-xs md:text-sm font-medium text-gray-500 mb-1 md:mb-2">Factures totales</h3>
+          <p className="text-xl md:text-3xl font-bold text-gray-900">{overallStats.totalInvoices}</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Montant total</h3>
-          <p className="text-3xl font-bold text-gray-900">{formatCurrency(overallStats.totalAmount, 'XOF')}</p>
+        <div className="bg-white p-3 md:p-6 rounded-lg shadow">
+          <h3 className="text-xs md:text-sm font-medium text-gray-500 mb-1 md:mb-2">Montant total</h3>
+          <p className="text-lg md:text-3xl font-bold text-gray-900 truncate">{formatCurrency(overallStats.totalAmount, 'XOF')}</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Factures payées</h3>
-          <p className="text-3xl font-bold text-green-600">{overallStats.paidInvoices}</p>
-          <p className="text-sm text-gray-500 mt-1">{formatCurrency(overallStats.paidAmount, 'XOF')}</p>
+        <div className="bg-white p-3 md:p-6 rounded-lg shadow">
+          <h3 className="text-xs md:text-sm font-medium text-gray-500 mb-1 md:mb-2">Payées</h3>
+          <p className="text-xl md:text-3xl font-bold text-green-600">{overallStats.paidInvoices}</p>
+          <p className="text-xs md:text-sm text-gray-500 mt-1 truncate">{formatCurrency(overallStats.paidAmount, 'XOF')}</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">En attente</h3>
-          <p className="text-3xl font-bold text-orange-600">{overallStats.pendingInvoices}</p>
-          <p className="text-sm text-gray-500 mt-1">{formatCurrency(overallStats.pendingAmount, 'XOF')}</p>
+        <div className="bg-white p-3 md:p-6 rounded-lg shadow">
+          <h3 className="text-xs md:text-sm font-medium text-gray-500 mb-1 md:mb-2">En attente</h3>
+          <p className="text-xl md:text-3xl font-bold text-orange-600">{overallStats.pendingInvoices}</p>
+          <p className="text-xs md:text-sm text-gray-500 mt-1 truncate">{formatCurrency(overallStats.pendingAmount, 'XOF')}</p>
         </div>
       </div>
 
       {/* Sales Rep Stats */}
-      <h2 className="text-2xl font-semibold mb-4">Performances par Commercial</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <h2 className="text-lg md:text-2xl font-semibold mb-3 md:mb-4">Performances par Commercial</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
         {Object.entries(salesRepStats).map(([rep, stats]) => (
-          <div key={rep} className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">{rep}</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
+          <div key={rep} className="bg-white p-4 md:p-6 rounded-lg shadow">
+            <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4">{rep}</h3>
+            <div className="space-y-2 md:space-y-3">
+              <div className="flex justify-between items-center text-sm md:text-base">
                 <span className="text-gray-600">Factures générées</span>
                 <span className="font-semibold">{stats.totalInvoices}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center text-sm md:text-base">
                 <span className="text-gray-600">Montant total</span>
-                <span className="font-semibold">{formatCurrency(stats.totalAmount, 'XOF')}</span>
+                <span className="font-semibold truncate ml-2">{formatCurrency(stats.totalAmount, 'XOF')}</span>
               </div>
               <div className="flex justify-between items-center border-t pt-3">
                 <span className="text-green-600">Factures payées</span>

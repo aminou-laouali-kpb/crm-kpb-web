@@ -64,31 +64,31 @@ const TemplatePage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <Button variant="ghost" onClick={handleBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+    <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3">
+        <Button variant="ghost" onClick={handleBack} size="sm">
+          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> Retour
         </Button>
-        <Button onClick={handleDownloadPDF} disabled={isDownloading}>
+        <Button onClick={handleDownloadPDF} disabled={isDownloading} className="w-full sm:w-auto">
           {isDownloading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Téléchargement...
+              <span className="text-sm md:text-base">Téléchargement...</span>
             </>
           ) : (
-            "Télécharger PDF"
+            <span className="text-sm md:text-base">Télécharger PDF</span>
           )}
         </Button>
       </div>
 
-      <div className="mb-8 overflow-x-auto">
-        <div className="flex space-x-4">
+      <div className="mb-4 md:mb-8 overflow-x-auto">
+        <div className="flex space-x-2 md:space-x-4 pb-2">
           {templates.map((template, index) => (
             <div
               key={index}
-              className={`cursor-pointer p-4 border rounded ${
+              className={`cursor-pointer p-2 md:p-4 border rounded whitespace-nowrap text-xs md:text-base ${
                 currentTemplate === index + 1
-                  ? "border-blue-500"
+                  ? "border-blue-500 bg-blue-50"
                   : "border-gray-300"
               }`}
               onClick={() => handleTemplateChange(index + 1)}
@@ -99,8 +99,10 @@ const TemplatePage = () => {
         </div>
       </div>
 
-      <div className="w-[210mm] h-[297mm] mx-auto border shadow-lg">
-        <InvoiceTemplate data={formData} templateNumber={currentTemplate} />
+      <div className="w-full max-w-[210mm] mx-auto border shadow-lg overflow-auto">
+        <div className="min-w-[600px] md:min-w-0">
+          <InvoiceTemplate data={formData} templateNumber={currentTemplate} />
+        </div>
       </div>
     </div>
   );

@@ -235,36 +235,36 @@ const CRMPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <Button variant="ghost" onClick={() => navigate('/')}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+    <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3">
+        <Button variant="ghost" onClick={() => navigate('/')} size="sm">
+          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour</span>
         </Button>
-        <div className="flex gap-4">
-          <Button variant="outline" onClick={() => navigate('/dashboard')}>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1 sm:flex-none text-xs md:text-sm">
             Dashboard
           </Button>
         </div>
       </div>
 
-      <h1 className="text-3xl font-bold mb-8">Gestion des Factures CRM</h1>
+      <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-8">Gestion CRM</h1>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+      <div className="grid grid-cols-1 gap-3 md:gap-4 mb-4 md:mb-6">
+        <div className="relative col-span-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Rechercher par nom ou numéro..."
+            placeholder="Rechercher..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 p-3 border border-gray-300 rounded-md"
+            className="w-full pl-10 p-2 md:p-3 border border-gray-300 rounded-md text-sm"
           />
         </div>
 
         <Select value={filterSalesRep} onValueChange={setFilterSalesRep}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filtrer par commercial" />
+          <SelectTrigger className="text-sm">
+            <SelectValue placeholder="Commercial" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les commerciaux</SelectItem>
@@ -276,8 +276,8 @@ const CRMPage = () => {
         </Select>
 
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger>
-            <SelectValue placeholder="Filtrer par statut" />
+          <SelectTrigger className="text-sm">
+            <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
@@ -293,31 +293,31 @@ const CRMPage = () => {
       {/* Invoices Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Facture
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Client
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">
                   Contact
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Commercial
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Montant
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Statut
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Actions
                 </th>
               </tr>
@@ -332,31 +332,33 @@ const CRMPage = () => {
                       : ''
                   }`}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-gray-900">
                     {invoice.invoice_number}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {invoice.client_first_name} {invoice.client_last_name}
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
+                    <div>{invoice.client_first_name}</div>
+                    <div className="md:hidden text-xs text-gray-500">{invoice.client_last_name}</div>
+                    <div className="hidden md:inline">{invoice.client_last_name}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <div>{invoice.client_email}</div>
-                    <div className="text-xs">{invoice.client_whatsapp}</div>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-500 hidden lg:table-cell">
+                    <div className="truncate max-w-[150px]">{invoice.client_email}</div>
+                    <div className="text-xs truncate max-w-[150px]">{invoice.client_whatsapp}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
                     {invoice.sales_representative}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
                     {formatCurrency(invoice.amount, invoice.currency)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-500 hidden md:table-cell">
                     {new Date(invoice.created_at).toLocaleDateString('fr-FR')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <Select
                       value={invoice.status}
                       onValueChange={(value) => handleStatusChange(invoice.id, value)}
                     >
-                      <SelectTrigger className={`w-48 ${statusColors[invoice.status]}`}>
+                      <SelectTrigger className={`w-32 md:w-48 text-xs md:text-sm ${statusColors[invoice.status]}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -368,21 +370,23 @@ const CRMPage = () => {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex gap-2">
+                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm">
+                    <div className="flex gap-1 md:gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditClick(invoice)}
+                        className="p-1 md:p-2"
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteClick(invoice)}
+                        className="p-1 md:p-2"
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-3 w-3 md:h-4 md:w-4 text-destructive" />
                       </Button>
                     </div>
                   </td>
