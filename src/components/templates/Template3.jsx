@@ -78,48 +78,50 @@ const Template3 = ({ data = {} }) => {
             INSTRUCTIONS DE PAIEMENT
           </div>
           
-          {paymentInfo.type === 'USA' && (
-            <div className="pl-4 space-y-2">
-              <p className="font-semibold text-blue-600">📍 Paiement aux États-Unis</p>
-              <p className="text-sm text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-3 text-sm">
-                <div><span className="font-medium">Prénom:</span></div>
-                <div>Idriss</div>
-                <div><span className="font-medium">Nom:</span></div>
-                <div>Laouali Abdou</div>
-                <div><span className="font-medium">Adresse:</span></div>
-                <div>Bellevue, Seattle, Washington, USA</div>
+          <div className="space-y-4">
+            {(paymentInfo.type === 'USA' || paymentInfo.type === 'All') && (
+              <div className="pl-4 space-y-2">
+                <p className="font-semibold text-blue-600">📍 Paiement aux États-Unis</p>
+                <p className="text-sm text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-3 text-sm">
+                  <div><span className="font-medium">Prénom:</span></div>
+                  <div>Idriss</div>
+                  <div><span className="font-medium">Nom:</span></div>
+                  <div>Laouali Abdou</div>
+                  <div><span className="font-medium">Adresse:</span></div>
+                  <div>Bellevue, Seattle, Washington, USA</div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {paymentInfo.type === 'Niamey' && (
-            <div className="pl-4 space-y-2">
-              <p className="font-semibold text-blue-600">📍 Paiement à Niamey</p>
-              <p className="text-sm text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-3 text-sm">
-                <div><span className="font-medium">Prénom:</span></div>
-                <div>Judicael Mahoutin</div>
-                <div><span className="font-medium">Nom:</span></div>
-                <div>Djidonou</div>
-                <div><span className="font-medium">Adresse:</span></div>
-                <div>Niamey - Niger</div>
+            {(paymentInfo.type === 'Niamey' || paymentInfo.type === 'All') && (
+              <div className={paymentInfo.type === 'All' ? 'pl-4 space-y-2 pt-4 border-t border-gray-300' : 'pl-4 space-y-2'}>
+                <p className="font-semibold text-blue-600">📍 Paiement à Niamey</p>
+                <p className="text-sm text-gray-600">Transfert via Moneygram, Western Union ou Ria</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-3 text-sm">
+                  <div><span className="font-medium">Prénom:</span></div>
+                  <div>Judicael Mahoutin</div>
+                  <div><span className="font-medium">Nom:</span></div>
+                  <div>Djidonou</div>
+                  <div><span className="font-medium">Adresse:</span></div>
+                  <div>Niamey - Niger</div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {paymentInfo.type === 'France' && (
-            <div className="pl-4 space-y-2">
-              <p className="font-semibold text-blue-600">🏦 Virement bancaire en France</p>
-              <div className="mt-3 space-y-1 text-sm">
-                <p><span className="font-medium">Titulaire du compte:</span> Idriss Laouali Abdou</p>
-                <p><span className="font-medium">IBAN:</span> FR76 1695 8000 0185 1038 3000 480</p>
-                <p><span className="font-medium">BIC/SWIFT:</span> QNTOFRP1XXX</p>
-                <p><span className="font-medium">BIC/SWIFT banque correspondante:</span> BNPAFRPP</p>
-                <p><span className="font-medium">Adresse titulaire:</span> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
+            {(paymentInfo.type === 'France' || paymentInfo.type === 'All') && (
+              <div className={paymentInfo.type === 'All' ? 'pl-4 space-y-2 pt-4 border-t border-gray-300' : 'pl-4 space-y-2'}>
+                <p className="font-semibold text-blue-600">🏦 Virement bancaire en France</p>
+                <div className="mt-3 space-y-1 text-sm">
+                  <p><span className="font-medium">Titulaire du compte:</span> Idriss Laouali Abdou</p>
+                  <p><span className="font-medium">IBAN:</span> FR76 1695 8000 0185 1038 3000 480</p>
+                  <p><span className="font-medium">BIC/SWIFT:</span> QNTOFRP1XXX</p>
+                  <p><span className="font-medium">BIC/SWIFT banque correspondante:</span> BNPAFRPP</p>
+                  <p><span className="font-medium">Adresse titulaire:</span> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Footer */}

@@ -80,8 +80,8 @@ const Template1 = ({ data = {} }) => {
         {/* Payment Information */}
         <div className="mb-8">
           <h3 className="font-bold text-blue-600 mb-4">INFORMATIONS DE PAIEMENT</h3>
-          <div className="border-2 border-blue-200 p-4 rounded bg-blue-50">
-            {paymentInfo.type === 'USA' && (
+          <div className="border-2 border-blue-200 p-4 rounded bg-blue-50 space-y-4">
+            {(paymentInfo.type === 'USA' || paymentInfo.type === 'All') && (
               <div>
                 <p className="font-semibold mb-2">Paiement aux USA via Moneygram/Western Union/Ria:</p>
                 <p><strong>Prénom:</strong> Idriss</p>
@@ -89,16 +89,16 @@ const Template1 = ({ data = {} }) => {
                 <p><strong>Adresse:</strong> Bellevue, Seattle, Washington, USA</p>
               </div>
             )}
-            {paymentInfo.type === 'Niamey' && (
-              <div>
+            {(paymentInfo.type === 'Niamey' || paymentInfo.type === 'All') && (
+              <div className={paymentInfo.type === 'All' ? 'pt-4 border-t border-blue-300' : ''}>
                 <p className="font-semibold mb-2">Paiement à Niamey via Moneygram/Western Union/Ria:</p>
                 <p><strong>Prénom:</strong> Judicael Mahoutin</p>
                 <p><strong>Nom:</strong> Djidonou</p>
                 <p><strong>Adresse:</strong> Niamey - Niger</p>
               </div>
             )}
-            {paymentInfo.type === 'France' && (
-              <div>
+            {(paymentInfo.type === 'France' || paymentInfo.type === 'All') && (
+              <div className={paymentInfo.type === 'All' ? 'pt-4 border-t border-blue-300' : ''}>
                 <p className="font-semibold mb-2">Paiement en France via Virement bancaire:</p>
                 <p><strong>Prénom:</strong> Idriss</p>
                 <p><strong>Nom:</strong> Laouali Abdou</p>
