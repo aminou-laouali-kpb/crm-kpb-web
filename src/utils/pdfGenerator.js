@@ -21,23 +21,54 @@ export const generatePDF = async (invoiceData, templateNumber) => {
       
       console.log('Capturing invoice with html2canvas...');
       
+      // Detect mobile device
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      
+      // For mobile, temporarily adjust the invoice container to fit better
+      const originalWidth = existingInvoice.style.width;
+      const originalHeight = existingInvoice.style.height;
+      
+      if (isMobile) {
+        existingInvoice.style.width = '100vw';
+        existingInvoice.style.height = 'auto';
+        existingInvoice.style.maxWidth = '100vw';
+      }
+      
+      // Wait for layout to settle
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const canvas = await html2canvas(existingInvoice, {
-        scale: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : Math.min(2, window.devicePixelRatio || 1.5),
+        scale: isMobile ? 2 : Math.min(2, window.devicePixelRatio || 1.5),
         useCORS: true,
         logging: false,
         allowTaint: true,
         backgroundColor: '#ffffff',
         scrollY: -window.scrollY,
-        windowWidth: existingInvoice.scrollWidth,
+        scrollX: -window.scrollX,
+        windowWidth: isMobile ? window.innerWidth : existingInvoice.scrollWidth,
         windowHeight: existingInvoice.scrollHeight
       });
+      
+      // Restore original styles
+      if (isMobile) {
+        existingInvoice.style.width = originalWidth;
+        existingInvoice.style.height = originalHeight;
+        existingInvoice.style.maxWidth = '';
+      }
       
       console.log('Canvas created, generating PDF...');
       
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
       
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
+      // Calculate PDF dimensions to fit the captured content
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const pdfWidth = isMobile ? 210 : 210; // A4 width in mm
+      const pdfHeight = (imgHeight * pdfWidth) / imgWidth; // Maintain aspect ratio
+      
+      const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       const { number, date } = invoiceData.invoice;
       const { firstName, lastName } = invoiceData.clientInfo;
       const timestamp = new Date().getTime();
