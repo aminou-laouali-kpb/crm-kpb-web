@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search, Pencil, Trash2 } from 'lucide-react';
+import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
   Select,
@@ -152,16 +153,47 @@ const CRMPage = () => {
   };
 
   const handleEditSubmit = async () => {
+    // Validation schema for edit form
+    const editSchema = z.object({
+      client_first_name: z.string()
+        .trim()
+        .min(1, "Le prénom est requis")
+        .max(100, "Le prénom ne peut pas dépasser 100 caractères")
+        .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, "Le prénom contient des caractères invalides"),
+      client_last_name: z.string()
+        .trim()
+        .min(1, "Le nom est requis")
+        .max(100, "Le nom ne peut pas dépasser 100 caractères")
+        .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, "Le nom contient des caractères invalides"),
+      client_email: z.string()
+        .trim()
+        .email("Format d'email invalide")
+        .max(255, "L'email ne peut pas dépasser 255 caractères"),
+      client_whatsapp: z.string()
+        .trim()
+        .regex(/^\+?[1-9]\d{1,14}$/, "Numéro WhatsApp invalide (format: +33612345678)"),
+      amount: z.string()
+        .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+          message: "Le montant doit être supérieur à 0"
+        })
+        .refine((val) => parseFloat(val) <= 999999999, {
+          message: "Le montant maximum est 999,999,999"
+        })
+    });
+
     try {
+      // Validate the form data
+      const validated = editSchema.parse(editForm);
+      
       const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase
         .from('invoices')
         .update({
-          client_first_name: editForm.client_first_name,
-          client_last_name: editForm.client_last_name,
-          client_email: editForm.client_email,
-          client_whatsapp: editForm.client_whatsapp,
-          amount: parseFloat(editForm.amount)
+          client_first_name: validated.client_first_name,
+          client_last_name: validated.client_last_name,
+          client_email: validated.client_email.toLowerCase(),
+          client_whatsapp: validated.client_whatsapp,
+          amount: parseFloat(validated.amount)
         })
         .eq('id', selectedInvoice.id);
 
@@ -171,7 +203,11 @@ const CRMPage = () => {
       setEditDialogOpen(false);
       fetchInvoices();
     } catch (error) {
-      toast.error("Erreur lors de la modification de la facture");
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        toast.error("Erreur lors de la modification de la facture");
+      }
     }
   };
 

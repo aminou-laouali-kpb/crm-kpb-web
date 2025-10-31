@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from 'lucide-react';
 import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
+import { validateInvoiceData, sanitizeText } from '../utils/validation';
 
 const generateRandomInvoiceNumber = () => {
   const length = Math.floor(Math.random() * 6) + 3;
@@ -115,29 +116,9 @@ const Index = () => {
   };
 
   const handleTemplateClick = async (templateNumber) => {
-    // Validation
-    if (!clientInfo.firstName || !clientInfo.lastName) {
-      toast.error("Veuillez renseigner le prénom et le nom du client");
-      return;
-    }
-    if (!clientInfo.email || !clientInfo.whatsapp) {
-      toast.error("Veuillez renseigner l'email et le WhatsApp du client");
-      return;
-    }
-    if (!service) {
-      toast.error("Veuillez renseigner le service");
-      return;
-    }
+    // Basic presence validation
     if (!salesRep) {
       toast.error("Veuillez sélectionner un commercial");
-      return;
-    }
-    if (!invoice.date || !invoice.number) {
-      toast.error("Veuillez renseigner la date et le numéro de facture");
-      return;
-    }
-    if (grandTotal <= 0) {
-      toast.error("Le montant total doit être supérieur à 0");
       return;
     }
 
@@ -148,20 +129,39 @@ const Index = () => {
       return;
     }
 
-    // Save to database
+    // Comprehensive validation with Zod
+    const validation = validateInvoiceData({
+      firstName: clientInfo.firstName,
+      lastName: clientInfo.lastName,
+      email: clientInfo.email,
+      whatsapp: clientInfo.whatsapp,
+      service: service,
+      amount: grandTotal,
+      invoiceNumber: invoice.number,
+      invoiceDate: invoice.date
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error);
+      return;
+    }
+
+    // Save to database with validated and sanitized data
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      const validated = validation.data;
+      
       const { data, error } = await supabase
         .from('invoices')
         .insert({
-          invoice_number: invoice.number,
-          invoice_date: invoice.date,
-          client_first_name: clientInfo.firstName,
-          client_last_name: clientInfo.lastName,
-          client_email: clientInfo.email,
-          client_whatsapp: clientInfo.whatsapp,
-          service_description: service,
-          amount: grandTotal,
+          invoice_number: validated.invoiceNumber,
+          invoice_date: validated.invoiceDate,
+          client_first_name: validated.firstName,
+          client_last_name: validated.lastName,
+          client_email: validated.email,
+          client_whatsapp: validated.whatsapp,
+          service_description: sanitizeText(validated.service),
+          amount: validated.amount,
           currency: selectedCurrency,
           payment_type: paymentType,
           sales_representative: salesRep,
