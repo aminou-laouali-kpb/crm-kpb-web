@@ -85,9 +85,6 @@ const CRMPage = () => {
       if (error) throw error;
       setInvoices(data || []);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error fetching invoices:', error);
-      }
       toast.error("Erreur lors du chargement des factures");
     } finally {
       setLoading(false);
@@ -121,9 +118,7 @@ const CRMPage = () => {
         fetchInvoices();
       }
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error updating stale invoices:', error);
-      }
+      // Silently fail - stale invoice check is non-critical
     }
   };
 
@@ -140,9 +135,6 @@ const CRMPage = () => {
       toast.success("Statut mis à jour avec succès");
       fetchInvoices();
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error updating status:', error);
-      }
       toast.error("Erreur lors de la mise à jour du statut");
     }
   };
@@ -179,9 +171,6 @@ const CRMPage = () => {
       setEditDialogOpen(false);
       fetchInvoices();
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error updating invoice:', error);
-      }
       toast.error("Erreur lors de la modification de la facture");
     }
   };
@@ -205,9 +194,6 @@ const CRMPage = () => {
       setDeleteDialogOpen(false);
       fetchInvoices();
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error deleting invoice:', error);
-      }
       toast.error("Erreur lors de la suppression de la facture");
     }
   };

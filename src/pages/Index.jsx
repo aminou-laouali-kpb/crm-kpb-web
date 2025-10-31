@@ -141,6 +141,7 @@ const Index = () => {
       return;
     }
 
+    // UX-only check - actual security is enforced by RLS policies on the database
     if (!user) {
       toast.error("Vous devez être connecté pour créer des factures");
       navigate('/auth');
