@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [signupData, setSignupData] = useState({ email: '', password: '', confirmPassword: '' });
 
   useEffect(() => {
     // Check if user is already logged in
@@ -45,10 +46,45 @@ const AuthPage = () => {
 
       if (error) throw error;
 
-      toast.success("Successfully logged in!");
+      toast.success("Connexion réussie!");
       navigate('/');
     } catch (error) {
-      toast.error(error.message || "Failed to log in");
+      toast.error(error.message || "Échec de la connexion");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    
+    if (signupData.password !== signupData.confirmPassword) {
+      toast.error("Les mots de passe ne correspondent pas");
+      return;
+    }
+
+    if (signupData.password.length < 6) {
+      toast.error("Le mot de passe doit contenir au moins 6 caractères");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: signupData.email,
+        password: signupData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success("Inscription réussie! Vous pouvez maintenant vous connecter.");
+      setSignupData({ email: '', password: '', confirmPassword: '' });
+    } catch (error) {
+      toast.error(error.message || "Échec de l'inscription");
     } finally {
       setLoading(false);
     }
@@ -74,51 +110,118 @@ const AuthPage = () => {
             KPB Invoice System
           </CardTitle>
           <CardDescription className="text-base text-muted-foreground">
-            Connectez-vous pour gérer vos factures
+            Gérez vos factures en toute simplicité
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-8">
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
-              <Input
-                id="login-email"
-                type="email"
-                placeholder="vous@exemple.com"
-                value={loginData.email}
-                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                required
-                className="h-12 transition-smooth focus:shadow-md"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="login-password" className="text-sm font-medium">Mot de passe</Label>
-              <Input
-                id="login-password"
-                type="password"
-                placeholder="••••••••"
-                value={loginData.password}
-                onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                required
-                className="h-12 transition-smooth focus:shadow-md"
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="w-full h-12 bg-gradient-primary hover:opacity-90 transition-smooth shadow-md hover:shadow-glow tap-highlight text-base font-semibold mt-6" 
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Connexion...
-                </span>
-              ) : 'Se Connecter'}
-            </Button>
-          </form>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="login">Connexion</TabsTrigger>
+              <TabsTrigger value="signup">Inscription</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="vous@exemple.com"
+                    value={loginData.email}
+                    onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                    required
+                    className="h-12 transition-smooth focus:shadow-md"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password" className="text-sm font-medium">Mot de passe</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginData.password}
+                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                    required
+                    className="h-12 transition-smooth focus:shadow-md"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-gradient-primary hover:opacity-90 transition-smooth shadow-md hover:shadow-glow tap-highlight text-base font-semibold mt-6" 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Connexion...
+                    </span>
+                  ) : 'Se Connecter'}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup">
+              <form onSubmit={handleSignup} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email" className="text-sm font-medium">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="vous@exemple.com"
+                    value={signupData.email}
+                    onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                    required
+                    className="h-12 transition-smooth focus:shadow-md"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password" className="text-sm font-medium">Mot de passe</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={signupData.password}
+                    onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                    required
+                    minLength={6}
+                    className="h-12 transition-smooth focus:shadow-md"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-confirm" className="text-sm font-medium">Confirmer le mot de passe</Label>
+                  <Input
+                    id="signup-confirm"
+                    type="password"
+                    placeholder="••••••••"
+                    value={signupData.confirmPassword}
+                    onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
+                    required
+                    minLength={6}
+                    className="h-12 transition-smooth focus:shadow-md"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-gradient-primary hover:opacity-90 transition-smooth shadow-md hover:shadow-glow tap-highlight text-base font-semibold mt-6" 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Inscription...
+                    </span>
+                  ) : "S'inscrire"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
