@@ -18,10 +18,10 @@ export const generatePDF = async (invoiceData, templateNumber) => {
         throw new Error('Élément de facture introuvable. Veuillez réessayer.');
       }
 
-      // Longer delay to ensure DOM is fully rendered on all devices
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       const isMobile = isMobileDevice();
+      
+      // Extended delay for mobile devices to ensure DOM is fully rendered
+      await new Promise(resolve => setTimeout(resolve, isMobile ? 1500 : 1000));
       
       // Store original styles for restoration
       const originalStyles = {
@@ -44,7 +44,7 @@ export const generatePDF = async (invoiceData, templateNumber) => {
       
       // Capture with optimized settings for mobile
       const canvas = await html2canvas(existingInvoice, {
-        scale: 2,
+        scale: isMobile ? 2.5 : 2,
         useCORS: true,
         logging: false,
         allowTaint: true,
@@ -53,7 +53,15 @@ export const generatePDF = async (invoiceData, templateNumber) => {
         scrollX: -window.scrollX,
         windowWidth: existingInvoice.scrollWidth,
         windowHeight: existingInvoice.scrollHeight,
-        removeContainer: false
+        removeContainer: false,
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('invoice-root');
+          if (clonedElement) {
+            clonedElement.style.display = 'block';
+            clonedElement.style.visibility = 'visible';
+          }
+        }
       });
       
       // Restore original styles immediately

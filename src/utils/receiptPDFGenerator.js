@@ -15,11 +15,10 @@ export const generateReceiptPDF = async (receiptElement, theme = 'Receipt1', rec
       throw new Error('Élément de reçu introuvable');
     }
 
-    // Wait for rendering to complete
-    await new Promise(resolve => setTimeout(resolve, 800));
-
+    // Extended wait for mobile rendering
     const isMobile = isMobileDevice();
-    
+    await new Promise(resolve => setTimeout(resolve, isMobile ? 1200 : 800));
+
     // Store original styles
     const originalStyles = {
       width: receiptElement.style.width,
@@ -40,13 +39,21 @@ export const generateReceiptPDF = async (receiptElement, theme = 'Receipt1', rec
 
     // Capture receipt with high quality
     const canvas = await html2canvas(receiptElement, {
-      scale: 3,
+      scale: isMobile ? 3.5 : 3,
       useCORS: true,
       logging: false,
       allowTaint: true,
       backgroundColor: '#ffffff',
       scrollY: -window.scrollY,
-      scrollX: -window.scrollX
+      scrollX: -window.scrollX,
+      imageTimeout: 15000,
+      onclone: (clonedDoc) => {
+        const cloned = clonedDoc.querySelector('[data-receipt]') || clonedDoc.body.firstChild;
+        if (cloned) {
+          cloned.style.display = 'block';
+          cloned.style.visibility = 'visible';
+        }
+      }
     });
 
     // Restore original styles
