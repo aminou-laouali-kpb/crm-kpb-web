@@ -56,29 +56,43 @@ const AuthPage = () => {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">KPB Invoice System</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to manage your invoices
+    <div className="min-h-screen flex items-center justify-center bg-gradient-hero animate-gradient p-4 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      </div>
+
+      <Card className="w-full max-w-md glass border-white/20 shadow-glow animate-scale-in relative z-10">
+        <CardHeader className="space-y-3 text-center pb-6">
+          <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-lg animate-pulse-glow mb-2">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            KPB Invoice System
+          </CardTitle>
+          <CardDescription className="text-base text-muted-foreground">
+            Connectez-vous pour gérer vos factures
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+        <CardContent className="pb-8">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="login-email">Email</Label>
+              <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
               <Input
                 id="login-email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="vous@exemple.com"
                 value={loginData.email}
                 onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                 required
+                className="h-12 transition-smooth focus:shadow-md"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="login-password">Password</Label>
+              <Label htmlFor="login-password" className="text-sm font-medium">Mot de passe</Label>
               <Input
                 id="login-password"
                 type="password"
@@ -86,10 +100,23 @@ const AuthPage = () => {
                 value={loginData.password}
                 onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                 required
+                className="h-12 transition-smooth focus:shadow-md"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Log In'}
+            <Button 
+              type="submit" 
+              className="w-full h-12 bg-gradient-primary hover:opacity-90 transition-smooth shadow-md hover:shadow-glow tap-highlight text-base font-semibold mt-6" 
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Connexion...
+                </span>
+              ) : 'Se Connecter'}
             </Button>
           </form>
         </CardContent>

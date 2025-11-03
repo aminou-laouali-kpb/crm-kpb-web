@@ -2,12 +2,12 @@ import React from 'react';
 
 const FloatingLabelInput = ({ id, label, type = 'text', value, onChange, name, className = '', disabled = false }) => {
   return (
-    <div className="relative">
+    <div className="relative group">
       <input
         type={type}
         id={id}
         name={name}
-        className={`block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-blue-600 peer ${className}`}
+        className={`block px-3 pb-2.5 pt-5 w-full text-sm bg-background rounded-xl border-2 border-input appearance-none transition-smooth focus:outline-none focus:ring-0 focus:border-primary peer disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary/50 ${className}`}
         placeholder=" "
         value={value}
         onChange={onChange}
@@ -20,7 +20,7 @@ const FloatingLabelInput = ({ id, label, type = 'text', value, onChange, name, c
       />
       <label
         htmlFor={id}
-        className="absolute text-sm text-gray-500 duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-white px-2 peer-focus:px-2 peer-focus:text-blue-600 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 left-1"
+        className="absolute text-sm text-muted-foreground duration-300 transform -translate-y-4 scale-75 top-3 z-10 origin-[0] bg-background px-2 peer-focus:px-2 peer-focus:text-primary peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-3 peer-focus:scale-75 peer-focus:-translate-y-4 left-2 pointer-events-none"
       >
         {label}
       </label>

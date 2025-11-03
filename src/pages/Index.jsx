@@ -227,41 +227,54 @@ const Index = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8 relative pb-20 md:pb-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-8 gap-3">
-        <h1 className="text-xl md:text-3xl font-bold">Générateur de Factures KPB Education</h1>
-        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center w-full md:w-auto">
-          <span className="text-xs md:text-sm text-gray-600 truncate max-w-full">{user?.email}</span>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="ghost" size="sm" onClick={signOut} className="flex-1 sm:flex-none">
-              <LogOut className="h-4 w-4 md:mr-2" /> <span className="hidden sm:inline">Déconnexion</span>
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/crm')} className="flex-1 sm:flex-none text-xs md:text-sm">
-              CRM
-            </Button>
+    <div className="min-h-screen bg-gradient-hero animate-gradient">
+      <div className="container mx-auto px-4 py-4 md:py-8 relative pb-20 md:pb-8">
+        {/* Modern Header with Glassmorphism */}
+        <div className="glass rounded-2xl p-4 md:p-6 mb-6 animate-slide-up shadow-lg sticky top-4 z-40">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div>
+              <h1 className="text-xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-1">
+                Générateur de Factures KPB
+              </h1>
+              <p className="text-sm text-muted-foreground">Créez vos factures professionnelles en quelques clics</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center w-full md:w-auto">
+              <span className="text-xs md:text-sm text-muted-foreground truncate max-w-full px-3 py-1.5 bg-secondary rounded-full">
+                {user?.email}
+              </span>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="ghost" size="sm" onClick={signOut} className="flex-1 sm:flex-none tap-highlight hover:bg-destructive/10 hover:text-destructive transition-smooth">
+                  <LogOut className="h-4 w-4 md:mr-2" /> <span className="hidden sm:inline">Déconnexion</span>
+                </Button>
+                <Button onClick={() => navigate('/crm')} className="flex-1 sm:flex-none text-xs md:text-sm bg-gradient-primary hover:opacity-90 transition-smooth tap-highlight">
+                  CRM
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       
-      <div className="fixed bottom-4 right-4 md:top-4 md:left-4 md:bottom-auto md:right-auto flex gap-2 z-50">
-        <button
-          onClick={clearForm}
-          className="bg-red-500 text-white p-2 md:p-2 rounded-full shadow-lg hover:bg-red-600"
-          aria-label="Effacer le formulaire"
-        >
-          <FiTrash2 size={20} className="md:w-6 md:h-6" />
-        </button>
-        <button
-          onClick={fillDummyData}
-          className="bg-blue-500 text-white p-2 md:p-2 rounded-full shadow-lg hover:bg-blue-600"
-          aria-label="Remplir avec des données test"
-        >
-          <FiEdit size={20} className="md:w-6 md:h-6" />
-        </button>
-      </div>
+        {/* Floating Action Buttons with Modern Design */}
+        <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 flex flex-col gap-3 z-50">
+          <button
+            onClick={clearForm}
+            className="w-14 h-14 bg-destructive text-destructive-foreground rounded-full shadow-lg hover:shadow-xl transition-smooth tap-highlight flex items-center justify-center group hover:scale-110"
+            aria-label="Effacer le formulaire"
+          >
+            <FiTrash2 size={22} className="group-hover:scale-110 transition-smooth" />
+          </button>
+          <button
+            onClick={fillDummyData}
+            className="w-14 h-14 bg-gradient-primary text-white rounded-full shadow-lg hover:shadow-glow transition-smooth tap-highlight flex items-center justify-center group hover:scale-110"
+            aria-label="Remplir avec des données test"
+          >
+            <FiEdit size={22} className="group-hover:scale-110 transition-smooth" />
+          </button>
+        </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-md">
+        {/* Main Content with Modern Cards */}
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+          <div className="w-full md:w-1/2 glass rounded-2xl p-6 md:p-8 shadow-lg animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <form>
             <ClientInfoSection
               clientInfo={clientInfo}
@@ -326,19 +339,36 @@ const Index = () => {
           </form>
         </div>
 
-        <div className="w-full md:w-1/2">
-          <h2 className="text-xl md:text-2xl font-semibold mb-4">Choisir un modèle</h2>
-          <div className="grid grid-cols-1 gap-3 md:gap-4">
-            {templates.map((template, index) => (
-              <div
-                key={index}
-                className="cursor-pointer p-4 md:p-6 border-2 rounded-lg hover:border-blue-500 transition-all hover:shadow-lg bg-white"
-                onClick={() => handleTemplateClick(index + 1)}
-              >
-                <h3 className="text-base md:text-lg font-semibold text-blue-600">{template.name}</h3>
-                <p className="text-xs md:text-sm text-gray-600 mt-1">Cliquez pour générer la facture</p>
-              </div>
-            ))}
+          {/* Templates Section with Modern Cards */}
+          <div className="w-full md:w-1/2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <h2 className="text-xl md:text-2xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
+              Choisir un modèle
+            </h2>
+            <div className="grid grid-cols-1 gap-3 md:gap-4">
+              {templates.map((template, index) => (
+                <div
+                  key={index}
+                  className="group cursor-pointer p-5 md:p-6 border-2 border-border rounded-2xl hover:border-primary transition-smooth hover:shadow-lg glass tap-highlight hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={() => handleTemplateClick(index + 1)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base md:text-lg font-semibold text-foreground group-hover:text-primary transition-smooth">
+                        {template.name}
+                      </h3>
+                      <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                        Cliquez pour générer la facture
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-gradient-primary group-hover:scale-110 transition-smooth">
+                      <svg className="w-5 h-5 text-primary group-hover:text-white transition-smooth" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
