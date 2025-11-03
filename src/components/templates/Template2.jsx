@@ -17,7 +17,7 @@ const Template2 = ({ data = {} }) => {
 
   return (
     <BaseTemplate data={data}>
-      <div className="bg-gradient-to-br from-blue-50 to-white p-4 max-w-4xl mx-auto">
+      <div className="bg-gradient-to-br from-blue-50 to-white p-3 md:p-4 w-full mx-auto">
         {/* Header */}
         <div className="text-center mb-4">
           <img src={kpbLogo} alt="KPB Education" className="h-24 w-24 mx-auto mb-4" />

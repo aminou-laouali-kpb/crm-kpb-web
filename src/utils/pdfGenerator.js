@@ -1,140 +1,150 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
+// Utility to detect mobile devices
+const isMobileDevice = () => /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Utility to detect iOS devices
+const isIOSDevice = () => 
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 export const generatePDF = async (invoiceData, templateNumber) => {
   return new Promise(async (resolve, reject) => {
     try {
-      console.log('Starting PDF generation...');
-      
-      // Use a robust selector for the rendered invoice element (mobile-safe)
       const existingInvoice = document.getElementById('invoice-root');
       
-      console.log('Invoice element found:', !!existingInvoice);
-      
       if (!existingInvoice) {
-        console.error('Invoice element not found in DOM');
         throw new Error('Élément de facture introuvable. Veuillez réessayer.');
       }
 
-      // Short delay to ensure DOM is fully rendered (optimize for speed)
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Longer delay to ensure DOM is fully rendered on all devices
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      console.log('Capturing invoice with html2canvas...');
+      const isMobile = isMobileDevice();
       
-      // Detect mobile device
-      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      // Store original styles for restoration
+      const originalStyles = {
+        width: existingInvoice.style.width,
+        height: existingInvoice.style.height,
+        maxWidth: existingInvoice.style.maxWidth,
+        transform: existingInvoice.style.transform
+      };
       
-      // For mobile, temporarily adjust the invoice container to fit better
-      const originalWidth = existingInvoice.style.width;
-      const originalHeight = existingInvoice.style.height;
-      
+      // Optimize layout for mobile capture
       if (isMobile) {
-        existingInvoice.style.width = '100vw';
+        existingInvoice.style.width = '794px';
         existingInvoice.style.height = 'auto';
-        existingInvoice.style.maxWidth = '100vw';
+        existingInvoice.style.maxWidth = '794px';
+        existingInvoice.style.transform = 'scale(1)';
+        
+        // Wait for layout changes to apply
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
-      // Wait for layout to settle
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      // Capture with optimized settings for mobile
       const canvas = await html2canvas(existingInvoice, {
-        scale: isMobile ? 2 : Math.min(2, window.devicePixelRatio || 1.5),
+        scale: 2,
         useCORS: true,
         logging: false,
         allowTaint: true,
         backgroundColor: '#ffffff',
         scrollY: -window.scrollY,
         scrollX: -window.scrollX,
-        windowWidth: isMobile ? window.innerWidth : existingInvoice.scrollWidth,
-        windowHeight: existingInvoice.scrollHeight
+        windowWidth: existingInvoice.scrollWidth,
+        windowHeight: existingInvoice.scrollHeight,
+        removeContainer: false
       });
       
-      // Restore original styles
-      if (isMobile) {
-        existingInvoice.style.width = originalWidth;
-        existingInvoice.style.height = originalHeight;
-        existingInvoice.style.maxWidth = '';
-      }
+      // Restore original styles immediately
+      Object.keys(originalStyles).forEach(key => {
+        existingInvoice.style[key] = originalStyles[key];
+      });
       
-      console.log('Canvas created, generating PDF...');
-      
-      const imgData = canvas.toDataURL('image/png');
-      
-      // Calculate PDF dimensions to fit the captured content
+      // Generate PDF with proper dimensions
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const pdfWidth = isMobile ? 210 : 210; // A4 width in mm
-      const pdfHeight = (imgHeight * pdfWidth) / imgWidth; // Maintain aspect ratio
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
       
       const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
-      
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      const { number, date } = invoiceData.invoice;
-      const { firstName, lastName } = invoiceData.clientInfo;
+      
+      // Generate filename
+      const { number = '', date = '' } = invoiceData.invoice || {};
+      const { firstName = '', lastName = '' } = invoiceData.clientInfo || {};
       const timestamp = new Date().getTime();
 
       let fileName;
       switch (templateNumber) {
         case 1:
-          fileName = `Facture_KPB_${number}.pdf`;
+          fileName = `Facture_KPB_${number || timestamp}.pdf`;
           break;
         case 2:
-          fileName = `KPB_${firstName}_${lastName}_${number}.pdf`;
+          fileName = `KPB_${firstName}_${lastName}_${number || timestamp}.pdf`;
           break;
         case 3:
-          fileName = `Facture_${number}_${date}.pdf`;
+          fileName = `Facture_${number || timestamp}_${date}.pdf`;
           break;
         default:
           fileName = `facture_kpb_${timestamp}.pdf`;
       }
 
-      console.log('Downloading PDF:', fileName);
+      // Download with mobile-optimized method
+      const arrayBuffer = pdf.output('arraybuffer');
+      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
       
-      // Robust mobile download handling
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
       try {
-        const arrayBuffer = pdf.output('arraybuffer');
-        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(blob);
-
-        // Prefer native share sheet on mobile when available (best iOS experience)
-        const file = new File([blob], fileName, { type: 'application/pdf' });
-        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: fileName, text: 'Facture PDF' });
-          // Sharing opened; return after user completes action
-          return;
+        // Try Web Share API first (best for mobile)
+        if (isMobile && navigator.share && navigator.canShare) {
+          const file = new File([blob], fileName, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ 
+              files: [file], 
+              title: 'Facture KPB',
+              text: 'Votre facture est prête'
+            });
+            resolve();
+            return;
+          }
         }
 
-        if (isIOS) {
-          // iOS: open in the same tab to avoid popup blocking; user can Save to Files
-          window.location.href = blobUrl;
+        // Fallback to blob URL download
+        const blobUrl = URL.createObjectURL(blob);
+        
+        if (isIOSDevice()) {
+          // iOS: open in new tab to allow "Save to Files"
+          const newWindow = window.open(blobUrl, '_blank');
+          if (!newWindow) {
+            // If popup blocked, try direct navigation
+            window.location.href = blobUrl;
+          }
         } else {
-          // Other browsers: force download via anchor element
+          // Android and Desktop: force download
           const link = document.createElement('a');
           link.href = blobUrl;
           link.download = fileName;
-          link.target = '_self';
-          link.rel = 'noopener noreferrer';
+          link.style.display = 'none';
           document.body.appendChild(link);
           link.click();
-          document.body.removeChild(link);
+          
+          // Cleanup
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+          }, 100);
         }
-
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-      } catch (e) {
-        console.warn('Primary download method failed, falling back to pdf.save', e);
+        
+        resolve();
+      } catch (shareError) {
+        // Final fallback: jsPDF's built-in save
         pdf.save(fileName);
+        resolve();
       }
       
-      console.log('PDF generation completed successfully');
-      resolve();
-      
     } catch (error) {
-      console.error('PDF generation error:', error);
-      reject(error);
+      reject(new Error(error.message || 'Échec de génération du PDF. Veuillez réessayer.'));
     }
   });
 };

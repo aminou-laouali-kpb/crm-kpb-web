@@ -17,7 +17,7 @@ const Template1 = ({ data = {} }) => {
 
   return (
     <BaseTemplate data={data}>
-      <div className="bg-white p-4 max-w-4xl mx-auto">
+      <div className="bg-white p-3 md:p-4 w-full mx-auto">
         {/* Header with Logo and Company Info */}
         <div className="flex justify-between items-start mb-4 border-b-2 border-blue-600 pb-3">
           <div>

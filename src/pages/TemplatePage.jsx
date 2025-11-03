@@ -50,7 +50,6 @@ const TemplatePage = () => {
         await generatePDF(formData, currentTemplate);
         toast.success("PDF généré avec succès");
       } catch (error) {
-        console.error('Error generating PDF:', error);
         const errorMessage = error.message || "Échec de génération du PDF. Réessayez.";
         toast.error(errorMessage);
       } finally {
@@ -104,7 +103,7 @@ const TemplatePage = () => {
       </div>
 
       <div className="w-full max-w-[210mm] mx-auto border shadow-lg overflow-auto bg-white">
-        <div id="invoice-root" className="min-w-0 md:min-w-[600px]">
+        <div id="invoice-root" className="w-full">
           <InvoiceTemplate data={formData} templateNumber={currentTemplate} />
         </div>
       </div>

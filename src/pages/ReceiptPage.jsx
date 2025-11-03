@@ -137,8 +137,10 @@ const ReceiptPage = () => {
       };
       try {
         await generateReceiptPDF(receiptRef.current, theme, receiptData);
+        // Success toast handled by generateReceiptPDF
       } catch (error) {
-        console.error("Error generating PDF:", error);
+        const errorMessage = error.message || "Échec de génération du reçu PDF";
+        alert(errorMessage);
       } finally {
         setIsDownloading(false);
       }

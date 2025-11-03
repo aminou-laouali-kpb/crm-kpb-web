@@ -17,7 +17,7 @@ const Template3 = ({ data = {} }) => {
 
   return (
     <BaseTemplate data={data}>
-      <div className="bg-white p-4 max-w-4xl mx-auto">
+      <div className="bg-white p-3 md:p-4 w-full mx-auto">
         {/* Header with Logo and Title Side by Side */}
         <div className="flex items-start justify-between mb-4 pb-3 border-b-4 border-blue-600">
           <div className="flex items-center gap-4">
