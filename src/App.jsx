@@ -8,6 +8,7 @@ const TemplatePage = lazy(() => import('./pages/TemplatePage'));
 const ReceiptPage = lazy(() => import('./pages/ReceiptPage'));
 const CRMPage = lazy(() => import('./pages/CRMPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const Index = lazy(() => import('./pages/Index'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/receipt" element={<ReceiptPage />} />
             <Route path="/crm" element={<CRMPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

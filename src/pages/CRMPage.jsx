@@ -266,6 +266,9 @@ const CRMPage = () => {
           <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1 sm:flex-none text-xs md:text-sm">
             Dashboard
           </Button>
+          <Button variant="outline" onClick={() => navigate('/reports')} className="flex-1 sm:flex-none text-xs md:text-sm">
+            Rapports
+          </Button>
         </div>
       </div>
 
