@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import kpbLogo from "@/assets/kpb-logo.png";
+import { mapLoginError, mapSignupError } from "@/utils/authErrorHandler";
 const AuthPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,7 @@ const AuthPage = () => {
       toast.success("Connexion réussie!");
       navigate('/');
     } catch (error) {
-      toast.error(error.message || "Échec de la connexion");
+      toast.error(mapLoginError(error));
     } finally {
       setLoading(false);
     }
@@ -82,7 +83,7 @@ const AuthPage = () => {
       toast.success("Inscription réussie! Vous pouvez maintenant vous connecter.");
       setSignupData({ email: '', password: '', confirmPassword: '' });
     } catch (error) {
-      toast.error(error.message || "Échec de l'inscription");
+      toast.error(mapSignupError(error));
     } finally {
       setLoading(false);
     }
