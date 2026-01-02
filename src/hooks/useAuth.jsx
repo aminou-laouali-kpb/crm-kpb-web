@@ -31,6 +31,11 @@ export const useAuth = (requireAuth = true) => {
   }, [navigate, requireAuth]);
 
   const signOut = async () => {
+    // Clear all form data from localStorage to prevent PII exposure on shared devices
+    localStorage.removeItem('formData');
+    localStorage.removeItem('receiptFormData');
+    localStorage.removeItem('billData');
+    
     await supabase.auth.signOut();
     navigate('/auth');
   };
