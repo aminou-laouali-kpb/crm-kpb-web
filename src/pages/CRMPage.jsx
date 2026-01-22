@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
+import { useAdminCheck } from '../hooks/useAdminCheck';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Search, Pencil, Trash2, Calculator } from 'lucide-react';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
@@ -52,6 +53,7 @@ const statusColors = {
 const CRMPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -262,13 +264,23 @@ const CRMPage = () => {
         <Button variant="ghost" onClick={() => navigate('/')} size="sm">
           <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour</span>
         </Button>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
           <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1 sm:flex-none text-xs md:text-sm">
             Dashboard
           </Button>
           <Button variant="outline" onClick={() => navigate('/reports')} className="flex-1 sm:flex-none text-xs md:text-sm">
             Rapports
           </Button>
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/accounting')} 
+              className="flex-1 sm:flex-none text-xs md:text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 hover:from-amber-600 hover:to-orange-600"
+            >
+              <Calculator className="mr-1 h-4 w-4" />
+              Comptabilité
+            </Button>
+          )}
         </div>
       </div>
 

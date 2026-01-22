@@ -14,7 +14,9 @@ import {
   PlusCircle,
   Receipt,
   PiggyBank,
-  AlertTriangle
+  AlertTriangle,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
@@ -29,6 +31,7 @@ import ExpensesSection from '../components/accounting/ExpensesSection';
 import PlannedIncomeSection from '../components/accounting/PlannedIncomeSection';
 import BudgetsSection from '../components/accounting/BudgetsSection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { exportAccountingToExcel, exportAccountingToPDF } from '../utils/accountingExport';
 
 const MONTHS = [
   { value: '01', label: 'Janvier' },
@@ -230,7 +233,7 @@ const AccountingPage = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Calendar className="h-4 w-4 text-muted-foreground hidden sm:block" />
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-36 glass border-primary/20 shadow-md">
@@ -254,6 +257,40 @@ const AccountingPage = () => {
               ))}
             </SelectContent>
           </Select>
+          
+          {/* Export buttons */}
+          <div className="flex gap-2 ml-auto sm:ml-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                exportAccountingToExcel(
+                  { invoices, expenses, plannedIncome, stats, expensesByCategory },
+                  getPeriodLabel()
+                );
+                toast.success("Export Excel téléchargé");
+              }}
+              className="flex items-center gap-1 text-xs"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                exportAccountingToPDF(
+                  { invoices, expenses, plannedIncome, stats, expensesByCategory },
+                  getPeriodLabel()
+                );
+                toast.success("Export PDF téléchargé");
+              }}
+              className="flex items-center gap-1 text-xs"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+          </div>
         </div>
       </div>
 
