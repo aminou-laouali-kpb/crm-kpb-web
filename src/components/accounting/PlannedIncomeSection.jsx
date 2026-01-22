@@ -33,6 +33,7 @@ import {
 import { Plus, Edit2, Trash2, Check, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { supabase } from "@/integrations/supabase/client";
+import { plannedIncomeSchema, validateAccountingData } from '../../utils/accountingValidation';
 
 const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const [incomes, setIncomes] = useState([]);
@@ -97,10 +98,27 @@ const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const incomeData = {
-        ...formData,
+      // Prepare data for validation
+      const dataToValidate = {
+        description: formData.description,
         amount: parseFloat(formData.amount),
+        due_date: formData.due_date,
+        status: formData.status,
+        source: formData.source || null,
+        is_recurring: formData.is_recurring || false,
         recurrence_type: formData.is_recurring ? formData.recurrence_type : null,
+        notes: formData.notes || null
+      };
+
+      // Validate input
+      const validation = validateAccountingData(plannedIncomeSchema, dataToValidate);
+      if (!validation.success) {
+        toast.error(validation.error);
+        return;
+      }
+
+      const incomeData = {
+        ...validation.data,
         admin_id: user.id
       };
 
