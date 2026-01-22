@@ -32,6 +32,7 @@ import {
 import { Plus, Edit2, Trash2, Check, Clock } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { supabase } from "@/integrations/supabase/client";
+import { expenseSchema, validateAccountingData } from '../../utils/accountingValidation';
 
 const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const [expenses, setExpenses] = useState([]);
@@ -96,10 +97,26 @@ const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const expenseData = {
-        ...formData,
+      // Prepare data for validation
+      const dataToValidate = {
+        description: formData.description,
         amount: parseFloat(formData.amount),
+        expense_date: formData.expense_date,
         category_id: formData.category_id || null,
+        status: formData.status,
+        payment_method: formData.payment_method || null,
+        notes: formData.notes || null
+      };
+
+      // Validate input
+      const validation = validateAccountingData(expenseSchema, dataToValidate);
+      if (!validation.success) {
+        toast.error(validation.error);
+        return;
+      }
+
+      const expenseData = {
+        ...validation.data,
         admin_id: user.id
       };
 

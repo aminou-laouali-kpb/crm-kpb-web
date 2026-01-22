@@ -22,6 +22,7 @@ import {
 import { Plus, Edit2, AlertTriangle, Check, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { supabase } from "@/integrations/supabase/client";
+import { budgetSchema, validateAccountingData } from '../../utils/accountingValidation';
 
 const BudgetsSection = ({ selectedMonth, selectedYear, expenses }) => {
   const [budgets, setBudgets] = useState([]);
@@ -77,9 +78,21 @@ const BudgetsSection = ({ selectedMonth, selectedYear, expenses }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const budgetData = {
+      // Prepare data for validation
+      const dataToValidate = {
         category_id: formData.category_id,
-        budgeted_amount: parseFloat(formData.budgeted_amount),
+        budgeted_amount: parseFloat(formData.budgeted_amount)
+      };
+
+      // Validate input
+      const validation = validateAccountingData(budgetSchema, dataToValidate);
+      if (!validation.success) {
+        toast.error(validation.error);
+        return;
+      }
+
+      const budgetData = {
+        ...validation.data,
         month: parseInt(selectedMonth),
         year: parseInt(selectedYear),
         admin_id: user.id
