@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '../hooks/useAuth';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,6 @@ const AccountingPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { supabase } = await import("@/integrations/supabase/client");
       
       const monthIndex = parseInt(selectedMonth) - 1;
       const year = parseInt(selectedYear);
