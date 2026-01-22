@@ -44,6 +44,124 @@ export type Database = {
         }
         Relationships: []
       }
+      budgets: {
+        Row: {
+          admin_id: string
+          budgeted_amount: number
+          category_id: string | null
+          created_at: string
+          id: string
+          month: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          admin_id: string
+          budgeted_amount?: number
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          month: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          admin_id?: string
+          budgeted_amount?: number
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          month?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          admin_id: string
+          amount: number
+          category_id: string | null
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          description: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -104,6 +222,51 @@ export type Database = {
           template_number?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      planned_income: {
+        Row: {
+          admin_id: string
+          amount: number
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          is_recurring: boolean | null
+          notes: string | null
+          recurrence_type: string | null
+          source: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          amount: number
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          recurrence_type?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          amount?: number
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          recurrence_type?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
