@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import Leaderboard from '../components/Leaderboard';
 
 const MONTHS = [
   { value: '01', label: 'Janvier' },
@@ -203,6 +204,9 @@ const DashboardPage = () => {
           </Select>
         </div>
       </div>
+
+      {/* Leaderboard */}
+      <Leaderboard invoices={invoices} periodLabel={getPeriodLabel()} />
 
       {/* Overall Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
