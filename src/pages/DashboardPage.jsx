@@ -58,25 +58,28 @@ const DashboardPage = () => {
   const fetchInvoices = async () => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
-      let query = supabase.from('invoices').select('*');
-
-      // Filter by selected month and year
+      
+      // Utiliser la fonction sécurisée get_invoice_stats au lieu de la table invoices
+      // Cette fonction n'expose que les champs nécessaires pour le dashboard (pas de données clients)
+      let startDate = null;
+      let endDate = null;
+      
       if (selectedMonth && selectedYear) {
         const monthIndex = parseInt(selectedMonth) - 1;
         const year = parseInt(selectedYear);
-        const startDate = new Date(year, monthIndex, 1);
-        const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-        
-        query = query
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString());
+        startDate = new Date(year, monthIndex, 1).toISOString();
+        endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999).toISOString();
       }
 
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc('get_invoice_stats', {
+        p_start_date: startDate,
+        p_end_date: endDate
+      });
 
       if (error) throw error;
       setInvoices(data || []);
     } catch (error) {
+      console.error('Error fetching invoice stats:', error);
       toast.error("Erreur lors du chargement des données");
     } finally {
       setLoading(false);
