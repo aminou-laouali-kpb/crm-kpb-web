@@ -305,6 +305,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      get_invoice_stats: {
+        Args: { p_end_date?: string; p_start_date?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          id: string
+          sales_representative: string
+          service_description: string
+          status: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
