@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '../hooks/useAuth';
-import { useAdminCheck } from '../hooks/useAdminCheck';
+import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -52,7 +52,7 @@ const MONTHS = [
 const AccountingPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useAdminCheck();
+  const { hasAccess, isAdmin, loading: accessLoading } = useAccountingAccess();
   
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -74,17 +74,17 @@ const AccountingPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!adminLoading && !isAdmin) {
-      toast.error("Accès réservé aux administrateurs");
+    if (!accessLoading && !hasAccess) {
+      toast.error("Accès réservé aux administrateurs et comptables");
       navigate('/crm');
     }
-  }, [isAdmin, adminLoading, navigate]);
+  }, [hasAccess, accessLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (hasAccess) {
       fetchData();
     }
-  }, [selectedMonth, selectedYear, isAdmin]);
+  }, [selectedMonth, selectedYear, hasAccess]);
 
   const fetchData = async () => {
     try {
@@ -203,11 +203,11 @@ const AccountingPage = () => {
     return Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
   };
 
-  if (authLoading || adminLoading || loading) {
+  if (authLoading || accessLoading || loading) {
     return <div className="container mx-auto px-4 py-8">Chargement...</div>;
   }
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return null;
   }
 
@@ -296,7 +296,7 @@ const AccountingPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+        <TabsList className={`grid w-full mb-6 ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Wallet className="h-4 w-4" />
             <span className="hidden sm:inline">Vue d'ensemble</span>
@@ -305,14 +305,18 @@ const AccountingPage = () => {
             <Receipt className="h-4 w-4" />
             <span className="hidden sm:inline">Dépenses</span>
           </TabsTrigger>
-          <TabsTrigger value="income" className="flex items-center gap-1">
-            <PlusCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Entrées</span>
-          </TabsTrigger>
-          <TabsTrigger value="budgets" className="flex items-center gap-1">
-            <PiggyBank className="h-4 w-4" />
-            <span className="hidden sm:inline">Budgets</span>
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="income" className="flex items-center gap-1">
+              <PlusCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Entrées</span>
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="budgets" className="flex items-center gap-1">
+              <PiggyBank className="h-4 w-4" />
+              <span className="hidden sm:inline">Budgets</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Overview Tab */}

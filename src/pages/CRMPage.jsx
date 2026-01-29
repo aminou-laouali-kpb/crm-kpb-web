@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
-import { useAdminCheck } from '../hooks/useAdminCheck';
+import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Search, Pencil, Trash2, Calculator } from 'lucide-react';
 import { z } from 'zod';
@@ -53,7 +53,7 @@ const statusColors = {
 const CRMPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
-  const { isAdmin } = useAdminCheck();
+  const { hasAccess: hasAccountingAccess } = useAccountingAccess();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -271,7 +271,7 @@ const CRMPage = () => {
           <Button variant="outline" onClick={() => navigate('/reports')} className="flex-1 sm:flex-none text-xs md:text-sm">
             Rapports
           </Button>
-          {isAdmin && (
+          {hasAccountingAccess && (
             <Button 
               variant="outline" 
               onClick={() => navigate('/accounting')} 

@@ -1,6 +1,4 @@
-
-
-# Plan : Ajout du rôle Comptable
+# Plan : Ajout du rôle Comptable ✅ IMPLÉMENTÉ
 
 ## Objectif
 Créer un nouveau rôle "comptable" permettant à un utilisateur de gérer les dépenses sans avoir les privilèges complets d'administrateur.
