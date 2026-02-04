@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Pencil, Trash2, Calculator } from 'lucide-react';
+import { ArrowLeft, Search, Pencil, Trash2, Calculator, RotateCcw } from 'lucide-react';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
@@ -50,6 +50,28 @@ const statusColors = {
   paid: 'bg-green-100 text-green-800'
 };
 
+const MONTHS = [
+  { value: '01', label: 'Janvier' },
+  { value: '02', label: 'Février' },
+  { value: '03', label: 'Mars' },
+  { value: '04', label: 'Avril' },
+  { value: '05', label: 'Mai' },
+  { value: '06', label: 'Juin' },
+  { value: '07', label: 'Juillet' },
+  { value: '08', label: 'Août' },
+  { value: '09', label: 'Septembre' },
+  { value: '10', label: 'Octobre' },
+  { value: '11', label: 'Novembre' },
+  { value: '12', label: 'Décembre' },
+];
+
+const PAYMENT_TYPES = [
+  { value: 'All', label: 'Toutes les options' },
+  { value: 'USA', label: 'Paiement aux USA' },
+  { value: 'Niamey', label: 'Paiement à Niamey' },
+  { value: 'France', label: 'Paiement en France' },
+];
+
 const CRMPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
@@ -59,6 +81,10 @@ const CRMPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSalesRep, setFilterSalesRep] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPaymentType, setFilterPaymentType] = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
+  const [filterService, setFilterService] = useState('all');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -242,6 +268,35 @@ const CRMPage = () => {
     return new Date(lastStatusChange) < sevenDaysAgo;
   };
 
+  // Extract unique services from invoices
+  const uniqueServices = useMemo(() => {
+    const services = [...new Set(invoices.map(inv => inv.service_description))];
+    return services.filter(Boolean).sort();
+  }, [invoices]);
+
+  // Generate year range (2020 to current year + 1)
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = 2020; year <= currentYear + 1; year++) {
+      years.push(year.toString());
+    }
+    return years;
+  }, []);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterSalesRep('all');
+    setFilterStatus('all');
+    setFilterPaymentType('all');
+    setFilterMonth('all');
+    setFilterYear('all');
+    setFilterService('all');
+  };
+
+  const hasActiveFilters = searchTerm || filterSalesRep !== 'all' || filterStatus !== 'all' || 
+    filterPaymentType !== 'all' || filterMonth !== 'all' || filterYear !== 'all' || filterService !== 'all';
+
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = 
       invoice.client_first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -250,8 +305,21 @@ const CRMPage = () => {
     
     const matchesSalesRep = filterSalesRep === 'all' || invoice.sales_representative === filterSalesRep;
     const matchesStatus = filterStatus === 'all' || invoice.status === filterStatus;
+    
+    const matchesPaymentType = filterPaymentType === 'all' || invoice.payment_type === filterPaymentType;
+    
+    const invoiceDate = new Date(invoice.created_at);
+    const matchesMonth = filterMonth === 'all' || 
+      (invoiceDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
+    
+    const matchesYear = filterYear === 'all' || 
+      invoiceDate.getFullYear().toString() === filterYear;
+    
+    const matchesService = filterService === 'all' || 
+      invoice.service_description === filterService;
 
-    return matchesSearch && matchesSalesRep && matchesStatus;
+    return matchesSearch && matchesSalesRep && matchesStatus && 
+           matchesPaymentType && matchesMonth && matchesYear && matchesService;
   });
 
   if (authLoading || loading) {
@@ -287,44 +355,119 @@ const CRMPage = () => {
       <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-8">Gestion CRM</h1>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-3 md:gap-4 mb-4 md:mb-6">
-        <div className="relative col-span-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+      <div className="space-y-3 mb-4 md:mb-6">
+        {/* Search bar - full width */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder="Rechercher par nom ou numéro de facture..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 p-2 md:p-3 border border-gray-300 rounded-md text-sm"
+            className="w-full pl-10 p-2 md:p-3 border border-input bg-background rounded-md text-sm"
           />
         </div>
 
-        <Select value={filterSalesRep} onValueChange={setFilterSalesRep}>
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="Commercial" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les commerciaux</SelectItem>
-            <SelectItem value="Josphin">Josphin</SelectItem>
-            <SelectItem value="Nadia">Nadia</SelectItem>
-            <SelectItem value="Donald">Donald</SelectItem>
-            <SelectItem value="Richard">Richard</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Filter grid - Row 1 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          <Select value={filterSalesRep} onValueChange={setFilterSalesRep}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Commercial" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les commerciaux</SelectItem>
+              <SelectItem value="Josphin">Josphin</SelectItem>
+              <SelectItem value="Nadia">Nadia</SelectItem>
+              <SelectItem value="Donald">Donald</SelectItem>
+              <SelectItem value="Richard">Richard</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="text-sm">
-            <SelectValue placeholder="Statut" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="generated">Facture générée</SelectItem>
-            <SelectItem value="sent">Facture envoyée</SelectItem>
-            <SelectItem value="awaiting_payment">En attente de paiement</SelectItem>
-            <SelectItem value="to_follow_up">À relancer</SelectItem>
-            <SelectItem value="paid">Facture payée</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              <SelectItem value="generated">Facture générée</SelectItem>
+              <SelectItem value="sent">Facture envoyée</SelectItem>
+              <SelectItem value="awaiting_payment">En attente de paiement</SelectItem>
+              <SelectItem value="to_follow_up">À relancer</SelectItem>
+              <SelectItem value="paid">Facture payée</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterPaymentType} onValueChange={setFilterPaymentType}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Mode de paiement" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les méthodes</SelectItem>
+              {PAYMENT_TYPES.map((pt) => (
+                <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterService} onValueChange={setFilterService}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Service" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les services</SelectItem>
+              {uniqueServices.map((service) => (
+                <SelectItem key={service} value={service}>
+                  {service.length > 30 ? `${service.substring(0, 30)}...` : service}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Filter grid - Row 2 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          <Select value={filterMonth} onValueChange={setFilterMonth}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Mois" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les mois</SelectItem>
+              {MONTHS.map((month) => (
+                <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Année" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les années</SelectItem>
+              {availableYears.map((year) => (
+                <SelectItem key={year} value={year}>{year}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              className="col-span-2 md:col-span-1 text-sm"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        {/* Results counter */}
+        <div className="text-sm text-muted-foreground">
+          {filteredInvoices.length} facture(s) trouvée(s)
+          {hasActiveFilters && ` sur ${invoices.length}`}
+        </div>
       </div>
 
       {/* Invoices Table */}
