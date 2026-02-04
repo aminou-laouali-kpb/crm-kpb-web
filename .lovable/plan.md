@@ -1,178 +1,89 @@
 
-# Plan : Système de filtrage avancé pour la page CRM
+# Plan : Utiliser la date de paiement au lieu de la date de creation
 
-## Objectif
-Ajouter des filtres supplémentaires sur la page Gestion CRM pour permettre un tri plus precis des factures par : methode de paiement, mois/annee, et type de service.
+## Probleme identifie
 
-## Situation actuelle
+Actuellement, le Dashboard et la page Reports filtrent les factures sur `created_at` (date de creation) au lieu de `last_status_change` (date du dernier changement de statut = date de paiement pour les factures payees).
 
-La page CRM dispose actuellement de 3 filtres :
-- **Recherche** : par nom du client ou numero de facture
-- **Commercial** : Josphin, Nadia, Donald, Richard
-- **Statut** : genere, envoye, en attente, a relancer, paye
+**Impact :** Si une facture est creee en decembre mais payee en janvier, elle apparait dans les stats de decembre au lieu de janvier.
 
-## Nouveaux filtres a ajouter
+## Donnees actuelles
 
-| Filtre | Valeurs disponibles | Donnees source |
-|--------|---------------------|----------------|
-| **Methode de paiement** | All, USA, Niamey, France | `payment_type` dans la table `invoices` |
-| **Mois** | Janvier - Decembre | Extrait de `created_at` |
-| **Annee** | 2020 - Annee actuelle + 1 | Extrait de `created_at` |
-| **Service** | Liste dynamique des services existants | `service_description` (avec recherche/autocomplete) |
+Pour janvier 2026, les deux methodes donnent le meme resultat (41 factures, 3 012 555 XOF) car il n'y a pas eu de decalage entre creation et paiement. Mais la logique doit etre corrigee pour les cas futurs.
 
-## Modifications techniques
+## Solution proposee
 
-### 1. Nouveaux etats de filtre
+### 1. Modifier la fonction RPC `get_invoice_stats`
 
-```javascript
-// Nouveaux filtres
-const [filterPaymentType, setFilterPaymentType] = useState('all');
-const [filterMonth, setFilterMonth] = useState('all');
-const [filterYear, setFilterYear] = useState('all');
-const [filterService, setFilterService] = useState('all');
+Ajouter le champ `last_status_change` au retour de la fonction pour permettre le filtrage cote client :
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_invoice_stats(
+  p_start_date timestamp with time zone DEFAULT NULL,
+  p_end_date timestamp with time zone DEFAULT NULL
+)
+RETURNS TABLE(
+  id uuid, 
+  amount numeric, 
+  sales_representative text, 
+  status text, 
+  created_at timestamp with time zone, 
+  user_id uuid, 
+  service_description text,
+  last_status_change timestamp with time zone  -- NOUVEAU
+)
+...
 ```
 
-### 2. Extraction des services uniques
+### 2. Modifier le Dashboard (`DashboardPage.jsx`)
 
+Pour les statistiques de paiement (Leaderboard, montant paye), filtrer les factures payees sur `last_status_change` :
+
+| Statistique | Filtre actuel | Nouveau filtre |
+|-------------|---------------|----------------|
+| Factures totales | `created_at` | `created_at` (inchange) |
+| Montant total | `created_at` | `created_at` (inchange) |
+| Factures payees | `created_at` + `status='paid'` | `last_status_change` dans la periode |
+| Montant encaisse | `created_at` + `status='paid'` | `last_status_change` dans la periode |
+| Leaderboard | `created_at` + `status='paid'` | `last_status_change` dans la periode |
+
+**Nouvelle logique :**
 ```javascript
-// Extraire les services uniques des factures chargees
-const uniqueServices = useMemo(() => {
-  const services = [...new Set(invoices.map(inv => inv.service_description))];
-  return services.filter(Boolean).sort();
-}, [invoices]);
-```
-
-### 3. Logique de filtrage mise a jour
-
-```javascript
-const filteredInvoices = invoices.filter(invoice => {
-  // Filtres existants
-  const matchesSearch = ...;
-  const matchesSalesRep = ...;
-  const matchesStatus = ...;
-  
-  // Nouveaux filtres
-  const matchesPaymentType = filterPaymentType === 'all' || 
-    invoice.payment_type === filterPaymentType;
-  
-  const invoiceDate = new Date(invoice.created_at);
-  const matchesMonth = filterMonth === 'all' || 
-    (invoiceDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
-  
-  const matchesYear = filterYear === 'all' || 
-    invoiceDate.getFullYear().toString() === filterYear;
-  
-  const matchesService = filterService === 'all' || 
-    invoice.service_description === filterService;
-
-  return matchesSearch && matchesSalesRep && matchesStatus && 
-         matchesPaymentType && matchesMonth && matchesYear && matchesService;
+// Factures payées dans la période (basé sur la date de paiement)
+const paidInPeriod = invoices.filter(inv => {
+  if (inv.status !== 'paid') return false;
+  const paymentDate = new Date(inv.last_status_change);
+  return paymentDate >= startDate && paymentDate <= endDate;
 });
 ```
 
-### 4. Interface utilisateur des filtres
+### 3. Modifier la page Reports (`ReportsPage.jsx`)
 
-Reorganiser les filtres sur 2 lignes pour mobile et 4 colonnes sur desktop :
+Appliquer la meme logique pour les rapports mensuels :
+- Les factures generees/envoyees restent filtrees sur `created_at`
+- Les montants payes sont filtres sur `last_status_change`
 
-**Ligne 1 :**
-- Barre de recherche (pleine largeur)
+### 4. Modifier le Leaderboard (`Leaderboard.jsx`)
 
-**Ligne 2 (grille) :**
-- Commercial
-- Statut
-- Methode de paiement
-- Service
+Le composant recevra la date de paiement et filtrera correctement.
 
-**Ligne 3 (grille) :**
-- Mois
-- Annee
-- Bouton "Reinitialiser les filtres"
-
-### 5. Bouton de reinitialisation
-
-Ajouter un bouton pour effacer tous les filtres d'un coup :
-
-```javascript
-const resetFilters = () => {
-  setSearchTerm('');
-  setFilterSalesRep('all');
-  setFilterStatus('all');
-  setFilterPaymentType('all');
-  setFilterMonth('all');
-  setFilterYear('all');
-  setFilterService('all');
-};
-```
-
-### 6. Affichage du nombre de resultats
-
-Ajouter un compteur de resultats filtres :
-
-```javascript
-<div className="text-sm text-gray-500 mb-2">
-  {filteredInvoices.length} facture(s) trouvee(s)
-</div>
-```
-
-## Structure du code modifie
-
-```text
-src/pages/CRMPage.jsx
-  |
-  +-- Imports supplementaires (useMemo, Calendar, X icons)
-  |
-  +-- Constantes (MONTHS, PAYMENT_TYPES)
-  |
-  +-- Nouveaux etats de filtre
-  |
-  +-- useMemo pour services uniques et annees
-  |
-  +-- Fonction resetFilters
-  |
-  +-- Logique de filtrage etendue
-  |
-  +-- Interface des filtres reorganisee
-  |
-  +-- Compteur de resultats
-```
-
-## Valeurs des selecteurs
-
-**Methode de paiement :**
-- "Toutes les methodes" (all)
-- "Paiement aux USA" (USA)
-- "Paiement a Niamey" (Niamey)
-- "Paiement en France" (France)
-- "Toutes les options" (All)
-
-**Mois :**
-- "Tous les mois" (all)
-- Janvier - Decembre (01-12)
-
-**Annees :**
-- "Toutes les annees" (all)
-- 2020 jusqu'a l'annee courante + 1
-
-**Services :**
-- "Tous les services" (all)
-- Liste dynamique des services existants
-
-## Fichier a modifier
+## Fichiers a modifier
 
 | Fichier | Modifications |
 |---------|---------------|
-| `src/pages/CRMPage.jsx` | Ajout des etats, logique de filtrage, interface des filtres |
+| Migration SQL | Ajouter `last_status_change` a la fonction RPC |
+| `src/pages/DashboardPage.jsx` | Filtrer les paiements sur `last_status_change` |
+| `src/pages/ReportsPage.jsx` | Idem pour les rapports |
+| `src/components/Leaderboard.jsx` | Recevoir et utiliser `last_status_change` |
 
-## Design responsive
+## Details techniques
 
-- **Mobile** : Filtres empiles verticalement (1 colonne)
-- **Tablette** : Grille 2 colonnes
-- **Desktop** : Grille 3-4 colonnes
+### Approche retenue
 
-## Resultat attendu
+Plutot que de faire 2 appels RPC separes (un pour created_at, un pour last_status_change), la fonction retournera toutes les factures ayant soit :
+- `created_at` dans la periode (pour les stats de generation)
+- `last_status_change` dans la periode ET status='paid' (pour les stats de paiement)
 
-- Filtrage instantane cote client (pas de requete supplementaire)
-- Interface claire et intuitive
-- Possibilite de combiner plusieurs filtres
-- Reinitialisation rapide de tous les filtres
-- Indicateur du nombre de resultats
+Cela garantit que :
+1. Une facture creee en janvier mais payee en fevrier apparait dans "Factures generees" de janvier et "Montant encaisse" de fevrier
+2. Le Leaderboard reflete les vrais encaissements du mois
