@@ -1,108 +1,178 @@
-# Plan : Ajout du rôle Comptable ✅ IMPLÉMENTÉ
+
+# Plan : Système de filtrage avancé pour la page CRM
 
 ## Objectif
-Créer un nouveau rôle "comptable" permettant à un utilisateur de gérer les dépenses sans avoir les privilèges complets d'administrateur.
+Ajouter des filtres supplémentaires sur la page Gestion CRM pour permettre un tri plus precis des factures par : methode de paiement, mois/annee, et type de service.
 
-## Modifications à effectuer
+## Situation actuelle
 
-### 1. Base de données - Ajout du rôle
+La page CRM dispose actuellement de 3 filtres :
+- **Recherche** : par nom du client ou numero de facture
+- **Commercial** : Josphin, Nadia, Donald, Richard
+- **Statut** : genere, envoye, en attente, a relancer, paye
 
-**Migration SQL :**
-```sql
--- Ajouter le rôle 'comptable' à l'enum app_role
-ALTER TYPE public.app_role ADD VALUE 'comptable';
-```
+## Nouveaux filtres a ajouter
 
-### 2. Base de données - Mise à jour des politiques RLS
+| Filtre | Valeurs disponibles | Donnees source |
+|--------|---------------------|----------------|
+| **Methode de paiement** | All, USA, Niamey, France | `payment_type` dans la table `invoices` |
+| **Mois** | Janvier - Decembre | Extrait de `created_at` |
+| **Annee** | 2020 - Annee actuelle + 1 | Extrait de `created_at` |
+| **Service** | Liste dynamique des services existants | `service_description` (avec recherche/autocomplete) |
 
-Modifier les politiques RLS pour permettre aux comptables de gérer les dépenses :
+## Modifications techniques
 
-| Table | Action | Accès actuel | Nouvel accès |
-|-------|--------|--------------|--------------|
-| `expenses` | ALL | admin | admin OU comptable |
-| `expense_categories` | ALL | admin | admin OU comptable |
-| `planned_income` | ALL | admin | admin uniquement |
-| `budgets` | ALL | admin | admin uniquement |
-
-**Politiques à modifier :**
-```sql
--- Supprimer l'ancienne politique sur expenses
-DROP POLICY "Admins can manage expenses" ON public.expenses;
-
--- Nouvelle politique : admins ET comptables peuvent gérer les dépenses
-CREATE POLICY "Admins and accountants can manage expenses"
-ON public.expenses FOR ALL
-TO authenticated
-USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'comptable'))
-WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'comptable'));
-
--- Idem pour expense_categories
-DROP POLICY "Admins can manage expense categories" ON public.expense_categories;
-CREATE POLICY "Admins and accountants can manage expense categories"
-ON public.expense_categories FOR ALL
-TO authenticated
-USING (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'comptable'))
-WITH CHECK (has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'comptable'));
-```
-
-### 3. Code - Créer un hook pour vérifier l'accès comptabilité
-
-**Nouveau fichier : `src/hooks/useAccountingAccess.jsx`**
-
-Ce hook vérifiera si l'utilisateur a le rôle `admin` OU `comptable` :
+### 1. Nouveaux etats de filtre
 
 ```javascript
-export const useAccountingAccess = () => {
-  // Vérifie si l'utilisateur a accès à la comptabilité
-  // Retourne: { hasAccess, isAdmin, isAccountant, loading }
+// Nouveaux filtres
+const [filterPaymentType, setFilterPaymentType] = useState('all');
+const [filterMonth, setFilterMonth] = useState('all');
+const [filterYear, setFilterYear] = useState('all');
+const [filterService, setFilterService] = useState('all');
+```
+
+### 2. Extraction des services uniques
+
+```javascript
+// Extraire les services uniques des factures chargees
+const uniqueServices = useMemo(() => {
+  const services = [...new Set(invoices.map(inv => inv.service_description))];
+  return services.filter(Boolean).sort();
+}, [invoices]);
+```
+
+### 3. Logique de filtrage mise a jour
+
+```javascript
+const filteredInvoices = invoices.filter(invoice => {
+  // Filtres existants
+  const matchesSearch = ...;
+  const matchesSalesRep = ...;
+  const matchesStatus = ...;
+  
+  // Nouveaux filtres
+  const matchesPaymentType = filterPaymentType === 'all' || 
+    invoice.payment_type === filterPaymentType;
+  
+  const invoiceDate = new Date(invoice.created_at);
+  const matchesMonth = filterMonth === 'all' || 
+    (invoiceDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
+  
+  const matchesYear = filterYear === 'all' || 
+    invoiceDate.getFullYear().toString() === filterYear;
+  
+  const matchesService = filterService === 'all' || 
+    invoice.service_description === filterService;
+
+  return matchesSearch && matchesSalesRep && matchesStatus && 
+         matchesPaymentType && matchesMonth && matchesYear && matchesService;
+});
+```
+
+### 4. Interface utilisateur des filtres
+
+Reorganiser les filtres sur 2 lignes pour mobile et 4 colonnes sur desktop :
+
+**Ligne 1 :**
+- Barre de recherche (pleine largeur)
+
+**Ligne 2 (grille) :**
+- Commercial
+- Statut
+- Methode de paiement
+- Service
+
+**Ligne 3 (grille) :**
+- Mois
+- Annee
+- Bouton "Reinitialiser les filtres"
+
+### 5. Bouton de reinitialisation
+
+Ajouter un bouton pour effacer tous les filtres d'un coup :
+
+```javascript
+const resetFilters = () => {
+  setSearchTerm('');
+  setFilterSalesRep('all');
+  setFilterStatus('all');
+  setFilterPaymentType('all');
+  setFilterMonth('all');
+  setFilterYear('all');
+  setFilterService('all');
 };
 ```
 
-### 4. Code - Modifier la page Comptabilité
+### 6. Affichage du nombre de resultats
 
-**Fichier : `src/pages/AccountingPage.jsx`**
+Ajouter un compteur de resultats filtres :
 
-- Remplacer `useAdminCheck` par `useAccountingAccess`
-- Afficher/masquer certaines sections selon le rôle :
-  - **Comptable** : Accès aux dépenses et vue d'ensemble
-  - **Admin** : Accès complet (dépenses, revenus planifiés, budgets)
-
-### 5. Code - Modifier le bouton CRM
-
-**Fichier : `src/pages/CRMPage.jsx`**
-
-- Le bouton "Comptabilité" sera visible pour les admins ET les comptables
-
-## Permissions par rôle
-
-| Fonctionnalité | Admin | Comptable | Sales Rep |
-|----------------|-------|-----------|-----------|
-| Vue d'ensemble comptabilité | Oui | Oui (lecture) | Non |
-| Gérer les dépenses | Oui | Oui | Non |
-| Gérer les catégories | Oui | Oui | Non |
-| Gérer les revenus planifiés | Oui | Non | Non |
-| Gérer les budgets | Oui | Non | Non |
-| Export PDF/Excel | Oui | Oui | Non |
-| Accès CRM | Oui | Oui | Oui |
-
-## Fichiers à créer/modifier
-
-| Fichier | Action |
-|---------|--------|
-| Migration SQL | Ajouter le rôle + modifier les politiques RLS |
-| `src/hooks/useAccountingAccess.jsx` | Créer (hook de vérification d'accès) |
-| `src/pages/AccountingPage.jsx` | Modifier (utiliser le nouveau hook, masquer certains onglets) |
-| `src/pages/CRMPage.jsx` | Modifier (afficher bouton pour comptables aussi) |
-| `src/integrations/supabase/types.ts` | Sera mis à jour automatiquement |
-
-## Attribution du rôle
-
-Pour attribuer le rôle "comptable" à un utilisateur, il faudra exécuter cette requête dans la base de données :
-
-```sql
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('UUID_DE_LUTILISATEUR', 'comptable');
+```javascript
+<div className="text-sm text-gray-500 mb-2">
+  {filteredInvoices.length} facture(s) trouvee(s)
+</div>
 ```
 
-Cela peut être fait via le backend (Cloud View > Run SQL) après avoir créé le compte utilisateur.
+## Structure du code modifie
 
+```text
+src/pages/CRMPage.jsx
+  |
+  +-- Imports supplementaires (useMemo, Calendar, X icons)
+  |
+  +-- Constantes (MONTHS, PAYMENT_TYPES)
+  |
+  +-- Nouveaux etats de filtre
+  |
+  +-- useMemo pour services uniques et annees
+  |
+  +-- Fonction resetFilters
+  |
+  +-- Logique de filtrage etendue
+  |
+  +-- Interface des filtres reorganisee
+  |
+  +-- Compteur de resultats
+```
+
+## Valeurs des selecteurs
+
+**Methode de paiement :**
+- "Toutes les methodes" (all)
+- "Paiement aux USA" (USA)
+- "Paiement a Niamey" (Niamey)
+- "Paiement en France" (France)
+- "Toutes les options" (All)
+
+**Mois :**
+- "Tous les mois" (all)
+- Janvier - Decembre (01-12)
+
+**Annees :**
+- "Toutes les annees" (all)
+- 2020 jusqu'a l'annee courante + 1
+
+**Services :**
+- "Tous les services" (all)
+- Liste dynamique des services existants
+
+## Fichier a modifier
+
+| Fichier | Modifications |
+|---------|---------------|
+| `src/pages/CRMPage.jsx` | Ajout des etats, logique de filtrage, interface des filtres |
+
+## Design responsive
+
+- **Mobile** : Filtres empiles verticalement (1 colonne)
+- **Tablette** : Grille 2 colonnes
+- **Desktop** : Grille 3-4 colonnes
+
+## Resultat attendu
+
+- Filtrage instantane cote client (pas de requete supplementaire)
+- Interface claire et intuitive
+- Possibilite de combiner plusieurs filtres
+- Reinitialisation rapide de tous les filtres
+- Indicateur du nombre de resultats
