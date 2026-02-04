@@ -75,6 +75,15 @@ const ReportsPage = () => {
     fetchInvoices();
   }, [selectedMonth, selectedYear]);
 
+  // Calculer les dates de début et fin de la période sélectionnée
+  const getPeriodDates = () => {
+    const month = parseInt(selectedMonth);
+    const year = parseInt(selectedYear);
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    return { startDate, endDate };
+  };
+
   const fetchInvoices = async () => {
     try {
       setLoading(true);
@@ -84,17 +93,19 @@ const ReportsPage = () => {
       const year = parseInt(selectedYear);
       
       const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
+      // Utiliser la fonction RPC get_invoice_stats qui retourne aussi last_status_change
+      // pour pouvoir filtrer les paiements par date de paiement
+      const { data, error } = await supabase.rpc('get_invoice_stats', {
+        p_start_date: startDate.toISOString(),
+        p_end_date: endDate.toISOString()
+      });
 
       if (error) throw error;
       setInvoices(data || []);
     } catch (error) {
+      console.error('Error fetching invoices:', error);
       toast.error("Erreur lors du chargement des données");
     } finally {
       setLoading(false);
@@ -107,10 +118,14 @@ const ReportsPage = () => {
   };
 
   const getServiceStats = () => {
+    const { startDate, endDate } = getPeriodDates();
     const serviceMap = {};
     
     invoices.forEach(inv => {
       const service = inv.service_description || 'Non spécifié';
+      const createdAt = new Date(inv.created_at);
+      const isCreatedInPeriod = createdAt >= startDate && createdAt <= endDate;
+      
       if (!serviceMap[service]) {
         serviceMap[service] = {
           name: service,
@@ -119,34 +134,58 @@ const ReportsPage = () => {
           count: 0
         };
       }
-      serviceMap[service].totalAmount += parseFloat(inv.amount);
-      serviceMap[service].count += 1;
-      if (inv.status === 'paid') {
-        serviceMap[service].paidAmount += parseFloat(inv.amount);
+      
+      // Comptabiliser le total seulement si créé dans la période
+      if (isCreatedInPeriod) {
+        serviceMap[service].totalAmount += parseFloat(inv.amount);
+        serviceMap[service].count += 1;
+      }
+      
+      // Comptabiliser le paiement seulement si payé dans la période (basé sur last_status_change)
+      if (inv.status === 'paid' && inv.last_status_change) {
+        const paymentDate = new Date(inv.last_status_change);
+        if (paymentDate >= startDate && paymentDate <= endDate) {
+          serviceMap[service].paidAmount += parseFloat(inv.amount);
+        }
       }
     });
 
     return Object.values(serviceMap)
+      .filter(s => s.count > 0 || s.paidAmount > 0)
       .sort((a, b) => b.totalAmount - a.totalAmount)
       .slice(0, 10);
   };
 
   const getSalesRepStats = () => {
+    const { startDate, endDate } = getPeriodDates();
     const stats = {};
     const salesReps = ['Josphin', 'Nadia', 'Donald', 'Richard'];
 
     salesReps.forEach(rep => {
-      const repInvoices = invoices.filter(inv => inv.sales_representative === rep);
-      const totalAmount = repInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-      const paidInvoices = repInvoices.filter(inv => inv.status === 'paid');
-      const paidAmount = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+      // Factures créées dans la période (basé sur created_at)
+      const repInvoicesCreated = invoices.filter(inv => {
+        if (inv.sales_representative !== rep) return false;
+        const createdAt = new Date(inv.created_at);
+        return createdAt >= startDate && createdAt <= endDate;
+      });
+      
+      // Factures payées dans la période (basé sur last_status_change)
+      const repInvoicesPaid = invoices.filter(inv => {
+        if (inv.sales_representative !== rep || inv.status !== 'paid') return false;
+        if (!inv.last_status_change) return false;
+        const paymentDate = new Date(inv.last_status_change);
+        return paymentDate >= startDate && paymentDate <= endDate;
+      });
+      
+      const totalAmount = repInvoicesCreated.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+      const paidAmount = repInvoicesPaid.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
       stats[rep] = {
-        totalInvoices: repInvoices.length,
+        totalInvoices: repInvoicesCreated.length,
         totalAmount,
-        paidInvoices: paidInvoices.length,
+        paidInvoices: repInvoicesPaid.length,
         paidAmount,
-        pendingInvoices: repInvoices.length - paidInvoices.length,
+        pendingInvoices: repInvoicesCreated.length - repInvoicesPaid.length,
         pendingAmount: totalAmount - paidAmount
       };
     });
@@ -189,19 +228,33 @@ const ReportsPage = () => {
   };
 
   const getOverallStats = () => {
-    const totalInvoices = invoices.length;
-    const totalAmount = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-    const paidInvoices = invoices.filter(inv => inv.status === 'paid');
-    const paidAmount = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    const { startDate, endDate } = getPeriodDates();
+    
+    // Factures créées dans la période (pour le total)
+    const invoicesCreated = invoices.filter(inv => {
+      const createdAt = new Date(inv.created_at);
+      return createdAt >= startDate && createdAt <= endDate;
+    });
+    
+    // Factures payées dans la période (basé sur last_status_change)
+    const invoicesPaidInPeriod = invoices.filter(inv => {
+      if (inv.status !== 'paid' || !inv.last_status_change) return false;
+      const paymentDate = new Date(inv.last_status_change);
+      return paymentDate >= startDate && paymentDate <= endDate;
+    });
+    
+    const totalInvoices = invoicesCreated.length;
+    const totalAmount = invoicesCreated.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    const paidAmount = invoicesPaidInPeriod.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
 
     return {
       totalInvoices,
       totalAmount,
-      paidInvoices: paidInvoices.length,
+      paidInvoices: invoicesPaidInPeriod.length,
       paidAmount,
-      pendingInvoices: totalInvoices - paidInvoices.length,
+      pendingInvoices: totalInvoices - invoicesPaidInPeriod.length,
       pendingAmount: totalAmount - paidAmount,
-      conversionRate: totalInvoices > 0 ? ((paidInvoices.length / totalInvoices) * 100).toFixed(1) : 0
+      conversionRate: totalInvoices > 0 ? ((invoicesPaidInPeriod.length / totalInvoices) * 100).toFixed(1) : 0
     };
   };
 

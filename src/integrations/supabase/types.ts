@@ -311,6 +311,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          last_status_change: string
           sales_representative: string
           service_description: string
           status: string

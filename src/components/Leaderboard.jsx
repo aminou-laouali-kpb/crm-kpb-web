@@ -2,16 +2,23 @@ import React from 'react';
 import { Trophy, Medal, Award, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 
-const Leaderboard = ({ invoices, periodLabel }) => {
+const Leaderboard = ({ invoices, periodLabel, periodDates }) => {
   // Calculate leaderboard data from paid invoices only
+  // Utilise la date de paiement (last_status_change) au lieu de created_at
   const getLeaderboardData = () => {
     const salesReps = ['Josphin', 'Nadia', 'Donald', 'Richard'];
     const leaderboardData = [];
+    const { startDate, endDate } = periodDates;
 
     salesReps.forEach(rep => {
-      const repInvoices = invoices.filter(
-        inv => inv.sales_representative === rep && inv.status === 'paid'
-      );
+      // Filtrer les factures payées dans la période basé sur last_status_change
+      const repInvoices = invoices.filter(inv => {
+        if (inv.sales_representative !== rep || inv.status !== 'paid') return false;
+        if (!inv.last_status_change) return false;
+        const paymentDate = new Date(inv.last_status_change);
+        return paymentDate >= startDate && paymentDate <= endDate;
+      });
+      
       const totalSales = repInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
       const salesCount = repInvoices.length;
 
