@@ -1,218 +1,314 @@
 
-# Plan : Mise a jour des moyens de paiement
+# Plan : Frais Maketou 5% et Systeme de Commissions/Points
 
-## Resume des changements
+## Resume
 
-Ajouter 4 nouveaux moyens de paiement et passer d'une selection unique a une selection multiple (maximum 3 types).
+Ce plan couvre deux fonctionnalites principales :
 
-## Nouveaux moyens de paiement
+1. **Gestion des frais Maketou (5%)** : Les paiements via Maketou sont soumis a 5% de frais de service, donc seuls 95% du montant sont enregistres comme revenus reels.
 
-| ID | Nom | Description | Coordonnees |
-|----|-----|-------------|-------------|
-| `Maketou` | Maketou | Agregateur mobile money (Wave, Orange Money, Airtel Money, MTN Money) | Lien de paiement envoye avec la facture |
-| `MyNITA` | MyNITA (Niger) | Paiement mobile Niger | Aminou Laouali Abdou, +227 76929799 |
-| `Wave` | Wave (Senegal/Cote d'Ivoire) | Paiement mobile Wave | Aminou Laouali Abdou, +227 76929799 |
-| `Especes` | Especes | Paiement en especes | Contact du commercial |
+2. **Systeme de commissions et points** : Afficher sur le Leaderboard les commissions mensuelles et les points accumules par chaque commercial.
 
-## Liste complete des moyens de paiement (apres modification)
+---
 
-1. **USA** - Moneygram/Western Union/Ria (Idriss Laouali Abdou, Bellevue, WA)
-2. **Niamey** - Moneygram/Western Union/Ria (Judicael Mahoutin Djidonou, Niamey)
-3. **France** - Virement bancaire (IBAN: FR76 1695 8000...)
-4. **Maketou** - Mobile Money agregateur (lien de paiement)
-5. **MyNITA** - Paiement mobile Niger (Aminou Laouali Abdou, +227 76929799)
-6. **Wave** - Wave Senegal/Cote d'Ivoire (Aminou Laouali Abdou, +227 76929799)
-7. **Especes** - Paiement en especes
+## Partie 1 : Frais Maketou (5%)
 
-## Changements techniques
+### Logique metier
 
-### 1. Modification du composant de selection (`PaymentTypeSection.jsx`)
+- Maketou preleve **5% de frais** sur chaque transaction
+- Le montant reel recu = **montant facture x 0.95**
+- Cette deduction s'applique **uniquement** aux factures dont le `payment_type` contient "Maketou"
 
-**Avant :** RadioGroup (selection unique) avec option "All"
-**Apres :** Checkboxes (selection multiple) avec limite de 3
+### Modifications necessaires
 
-```javascript
-// Nouveau state : tableau au lieu de string
-const [selectedPayments, setSelectedPayments] = useState(['USA']);
+**1. Fonction RPC `get_invoice_stats`**
 
-// Constante pour les options disponibles
-const PAYMENT_OPTIONS = [
-  { id: 'USA', label: 'Paiement aux USA', icon: '🇺🇸', 
-    description: 'Via Moneygram/Western Union/Ria - Idriss Laouali Abdou, Bellevue, WA' },
-  { id: 'Niamey', label: 'Paiement a Niamey', icon: '🇳🇪',
-    description: 'Via Moneygram/Western Union/Ria - Judicael Mahoutin Djidonou' },
-  { id: 'France', label: 'Virement bancaire France', icon: '🇫🇷',
-    description: 'IBAN: FR76 1695 8000 0185 1038 3000 480' },
-  { id: 'Maketou', label: 'Maketou', icon: '📱',
-    description: 'Mobile Money (Wave, Orange Money, Airtel Money, MTN)' },
-  { id: 'MyNITA', label: 'MyNITA (Niger)', icon: '💳',
-    description: 'Aminou Laouali Abdou - +227 76929799' },
-  { id: 'Wave', label: 'Wave (Senegal/Cote d\'Ivoire)', icon: '🌊',
-    description: 'Aminou Laouali Abdou - +227 76929799' },
-  { id: 'Especes', label: 'Especes', icon: '💵',
-    description: 'Paiement en especes - Contact du commercial' }
-];
+Ajouter le champ `payment_type` au retour pour permettre le calcul des frais Maketou cote client :
+
+```sql
+RETURNS TABLE(
+  id uuid, 
+  amount numeric, 
+  sales_representative text, 
+  status text, 
+  created_at timestamp with time zone, 
+  user_id uuid, 
+  service_description text,
+  last_status_change timestamp with time zone,
+  payment_type text  -- NOUVEAU
+)
 ```
 
-### 2. Logique de selection multiple
+**2. Fonction utilitaire de calcul du montant reel**
 
 ```javascript
-const handlePaymentToggle = (paymentId) => {
-  setSelectedPayments(prev => {
-    if (prev.includes(paymentId)) {
-      // Deselection (minimum 1)
-      if (prev.length === 1) return prev;
-      return prev.filter(p => p !== paymentId);
-    } else {
-      // Selection (maximum 3)
-      if (prev.length >= 3) {
-        toast.warning("Maximum 3 moyens de paiement");
-        return prev;
-      }
-      return [...prev, paymentId];
-    }
-  });
+// src/utils/commissionCalculations.js
+export const MAKETOU_FEE_RATE = 0.05; // 5%
+
+export const getNetAmount = (amount, paymentType) => {
+  // Si le paiement inclut Maketou, deduire 5%
+  if (paymentType && paymentType.includes('Maketou')) {
+    return amount * (1 - MAKETOU_FEE_RATE);
+  }
+  return amount;
 };
 ```
 
-### 3. Modification de l'interface (`PaymentTypeSection.jsx`)
+**3. Application dans le Dashboard et Leaderboard**
 
-Remplacer les RadioGroupItem par des Checkbox avec :
-- Indicateur visuel du nombre selectionne (1/3, 2/3, 3/3)
-- Message d'aide "Selectionnez jusqu'a 3 moyens de paiement"
-- Style different pour les cases cochees
+Le montant net sera utilise pour :
+- Calcul des revenus reels affiches
+- Calcul des commissions (base sur le montant reel recu)
 
-### 4. Modification du state dans `Index.jsx`
+---
 
-```javascript
-// Avant
-const [paymentType, setPaymentType] = useState("USA");
+## Partie 2 : Systeme de Commissions
 
-// Apres
-const [selectedPayments, setSelectedPayments] = useState(["USA"]);
-```
+### Regles de commission
 
-### 5. Mise a jour des templates (Template1, Template2, Template3)
+| Type | Calcul | Condition |
+|------|--------|-----------|
+| Commission de base | 10% du montant net recu | Chaque vente payee |
+| Bonus palier | +10 000 FCFA | Total ventes >= 850 000 FCFA |
+| Bonus 1er vendeur | +15 000 FCFA | Meilleur vendeur du mois |
 
-Modifier la logique d'affichage pour iterer sur le tableau :
-
-```javascript
-// Avant
-paymentInfo = { type: 'USA' }
-{(paymentInfo.type === 'USA' || paymentInfo.type === 'All') && (...)}
-
-// Apres
-paymentInfo = { types: ['USA', 'Wave'] }
-{paymentInfo.types.includes('USA') && (...)}
-```
-
-Ajouter les sections pour les nouveaux moyens de paiement :
+### Formule de calcul
 
 ```javascript
-{paymentInfo.types.includes('Maketou') && (
-  <div>
-    <p className="font-semibold text-blue-600 text-xs">📱 Maketou - Mobile Money</p>
-    <p className="text-xs">Wave, Orange Money, Airtel Money, MTN Money</p>
-    <p className="text-xs mt-1">Un lien de paiement vous sera envoye par email/WhatsApp</p>
-  </div>
-)}
-
-{paymentInfo.types.includes('MyNITA') && (
-  <div>
-    <p className="font-semibold text-blue-600 text-xs">💳 MyNITA (Niger)</p>
-    <p className="text-xs"><strong>Prenom:</strong> Aminou</p>
-    <p className="text-xs"><strong>Nom:</strong> Laouali Abdou</p>
-    <p className="text-xs"><strong>Telephone:</strong> +227 76929799</p>
-  </div>
-)}
-
-{paymentInfo.types.includes('Wave') && (
-  <div>
-    <p className="font-semibold text-blue-600 text-xs">🌊 Wave (Senegal/Cote d'Ivoire)</p>
-    <p className="text-xs"><strong>Prenom:</strong> Aminou</p>
-    <p className="text-xs"><strong>Nom:</strong> Laouali Abdou</p>
-    <p className="text-xs"><strong>Telephone:</strong> +227 76929799</p>
-  </div>
-)}
-
-{paymentInfo.types.includes('Especes') && (
-  <div>
-    <p className="font-semibold text-blue-600 text-xs">💵 Paiement en especes</p>
-    <p className="text-xs">Contactez votre commercial pour organiser le paiement</p>
-  </div>
-)}
+// Pour chaque commercial
+const calculateCommission = (rep) => {
+  // 1. Calculer le montant net total (avec deduction Maketou)
+  const netSales = repInvoices.reduce((sum, inv) => {
+    const amount = parseFloat(inv.amount);
+    return sum + getNetAmount(amount, inv.payment_type);
+  }, 0);
+  
+  // 2. Commission de base : 10%
+  const baseCommission = netSales * 0.10;
+  
+  // 3. Bonus palier 850k
+  const tierBonus = netSales >= 850000 ? 10000 : 0;
+  
+  // 4. Bonus 1er vendeur (attribue apres le tri)
+  const topSellerBonus = isTopSeller ? 15000 : 0;
+  
+  // Total
+  return {
+    baseCommission,
+    tierBonus,
+    topSellerBonus,
+    totalCommission: baseCommission + tierBonus + topSellerBonus
+  };
+};
 ```
 
-### 6. Mise a jour de la base de donnees
+---
 
-Le champ `payment_type` dans la table `invoices` stocke actuellement une seule valeur (string). 
-Options :
-- **Option A** : Stocker un tableau JSON (ex: `["USA", "Wave"]`)
-- **Option B** : Stocker une chaine separee par virgules (ex: `"USA,Wave"`)
+## Partie 3 : Systeme de Points
 
-Je recommande l'Option B pour la simplicite et la compatibilite avec les factures existantes.
+### Regles d'attribution des points
+
+| Position | Points du mois |
+|----------|----------------|
+| 1er | 10 points |
+| 2eme | 5 points |
+| 3eme | 3 points |
+| 4eme+ | 0 point |
+
+### Stockage des points
+
+Il faut creer une nouvelle table pour stocker l'historique des points :
+
+```sql
+CREATE TABLE sales_rep_points (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  sales_rep text NOT NULL,  -- Nom du commercial
+  month integer NOT NULL,   -- Mois (1-12)
+  year integer NOT NULL,    -- Annee
+  points integer NOT NULL DEFAULT 0,
+  position integer NOT NULL,  -- Position au classement
+  total_sales numeric NOT NULL,  -- Total des ventes ce mois
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(sales_rep, month, year)  -- Un seul enregistrement par commercial/mois
+);
+```
+
+### Calcul des points trimestriels
 
 ```javascript
-// Sauvegarde
-payment_type: selectedPayments.join(',')
-
-// Lecture
-const paymentTypes = invoice.payment_type.split(',');
+// Trimestres : Jan-Mar, Avr-Juin, Juil-Sep, Oct-Dec
+const getQuarterlyPoints = (rep, currentMonth, currentYear) => {
+  const quarter = Math.floor((currentMonth - 1) / 3);
+  const quarterStartMonth = quarter * 3 + 1;
+  const quarterEndMonth = quarterStartMonth + 2;
+  
+  // Sommer les points du trimestre en cours
+  return pointsHistory
+    .filter(p => 
+      p.sales_rep === rep && 
+      p.year === currentYear && 
+      p.month >= quarterStartMonth && 
+      p.month <= quarterEndMonth
+    )
+    .reduce((sum, p) => sum + p.points, 0);
+};
 ```
 
-## Fichiers a modifier
+---
 
-| Fichier | Modifications |
-|---------|---------------|
-| `src/components/PaymentTypeSection.jsx` | Refonte complete : Checkbox au lieu de Radio, liste des 7 options |
-| `src/pages/Index.jsx` | Changer le state de string a array, adapter handlePaymentTypeChange |
-| `src/components/templates/Template1.jsx` | Ajouter les 4 nouveaux moyens, adapter la logique d'affichage |
-| `src/components/templates/Template2.jsx` | Idem |
-| `src/components/templates/Template3.jsx` | Idem |
+## Partie 4 : Affichage sur le Leaderboard
 
-## Interface utilisateur finale
+### Nouveau design du tableau
 
 ```text
 +----------------------------------------------------------+
-|  Moyens de paiement (2/3 selectionnes)                   |
+|  Classement du mois - Janvier 2026                       |
 +----------------------------------------------------------+
 |                                                          |
-|  [x] 🇺🇸 Paiement aux USA                                |
-|      Via Moneygram/Western Union/Ria                     |
+|  🏆 1. Josphin                                           |
+|      Ventes: 1 200 000 FCFA (2 ventes)                   |
+|      Net: 1 140 000 FCFA (apres frais Maketou)           |
+|      Commission: 114 000 + 10 000 + 15 000 = 139 000 FCFA|
+|      Points: 10 pts (mois) | 25 pts (trimestre)          |
 |                                                          |
-|  [ ] 🇳🇪 Paiement a Niamey                               |
-|      Via Moneygram/Western Union/Ria                     |
-|                                                          |
-|  [ ] 🇫🇷 Virement bancaire France                        |
-|      IBAN: FR76 1695 8000...                             |
-|                                                          |
-|  [ ] 📱 Maketou                                          |
-|      Mobile Money (Wave, Orange Money, Airtel, MTN)      |
-|                                                          |
-|  [x] 💳 MyNITA (Niger)                                   |
-|      Aminou Laouali Abdou - +227 76929799                |
-|                                                          |
-|  [ ] 🌊 Wave (Senegal/Cote d'Ivoire)                     |
-|      Aminou Laouali Abdou - +227 76929799                |
-|                                                          |
-|  [ ] 💵 Especes                                          |
-|      Paiement en especes - Contact du commercial         |
+|  🥈 2. Nadia                                             |
+|      Ventes: 900 000 FCFA (3 ventes)                     |
+|      Net: 900 000 FCFA                                   |
+|      Commission: 90 000 + 10 000 = 100 000 FCFA          |
+|      Points: 5 pts (mois) | 15 pts (trimestre)           |
 |                                                          |
 +----------------------------------------------------------+
 ```
 
-## Compatibilite avec les donnees existantes
+### Informations affichees par commercial
 
-Les factures existantes ont `payment_type` = "USA", "Niamey", "France" ou "All".
-- "USA", "Niamey", "France" : Convertis en tableau a un element
-- "All" : Converti en `["USA", "Niamey", "France"]` (les 3 anciens moyens)
+| Element | Description |
+|---------|-------------|
+| Ventes totales | Montant brut des factures payees |
+| Montant net | Apres deduction frais Maketou (5%) |
+| Commission de base | 10% du montant net |
+| Bonus palier | +10k si >= 850k |
+| Bonus 1er | +15k pour le meilleur vendeur |
+| Total commission | Somme a payer au commercial |
+| Points du mois | 10/5/3/0 selon la position |
+| Points trimestre | Cumul des 3 mois du trimestre |
+
+---
+
+## Fichiers a creer/modifier
+
+| Fichier | Action | Description |
+|---------|--------|-------------|
+| `supabase/migrations/xxx.sql` | Creer | Table `sales_rep_points` + MAJ RPC |
+| `src/utils/commissionCalculations.js` | Creer | Fonctions de calcul commissions/points |
+| `src/components/Leaderboard.jsx` | Modifier | Afficher commissions et points |
+| `src/pages/DashboardPage.jsx` | Modifier | Passer payment_type au Leaderboard |
+
+---
+
+## Migration SQL
+
+```sql
+-- 1. Creer la table des points
+CREATE TABLE public.sales_rep_points (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  sales_rep text NOT NULL,
+  month integer NOT NULL CHECK (month >= 1 AND month <= 12),
+  year integer NOT NULL CHECK (year >= 2020),
+  points integer NOT NULL DEFAULT 0,
+  position integer NOT NULL CHECK (position >= 1 AND position <= 4),
+  total_sales numeric NOT NULL DEFAULT 0,
+  net_sales numeric NOT NULL DEFAULT 0,
+  total_commission numeric NOT NULL DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(sales_rep, month, year)
+);
+
+-- 2. RLS pour la table
+ALTER TABLE public.sales_rep_points ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins can manage points"
+  ON public.sales_rep_points
+  FOR ALL
+  USING (has_role(auth.uid(), 'admin'))
+  WITH CHECK (has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "All users can view points"
+  ON public.sales_rep_points
+  FOR SELECT
+  USING (true);
+
+-- 3. Mettre a jour la fonction RPC pour inclure payment_type
+DROP FUNCTION IF EXISTS public.get_invoice_stats(timestamp with time zone, timestamp with time zone);
+
+CREATE FUNCTION public.get_invoice_stats(
+  p_start_date timestamp with time zone DEFAULT NULL,
+  p_end_date timestamp with time zone DEFAULT NULL
+)
+RETURNS TABLE(
+  id uuid, 
+  amount numeric, 
+  sales_representative text, 
+  status text, 
+  created_at timestamp with time zone, 
+  user_id uuid, 
+  service_description text,
+  last_status_change timestamp with time zone,
+  payment_type text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+  SELECT 
+    i.id,
+    i.amount,
+    i.sales_representative::text,
+    i.status::text,
+    i.created_at,
+    i.user_id,
+    i.service_description,
+    i.last_status_change,
+    i.payment_type
+  FROM public.invoices i
+  WHERE 
+    (
+      (p_start_date IS NULL OR i.created_at >= p_start_date)
+      AND (p_end_date IS NULL OR i.created_at <= p_end_date)
+    )
+    OR
+    (
+      i.status = 'paid'
+      AND (p_start_date IS NULL OR i.last_status_change >= p_start_date)
+      AND (p_end_date IS NULL OR i.last_status_change <= p_end_date)
+    );
+$$;
+```
+
+---
+
+## Workflow d'utilisation
+
+1. **En temps reel** : Le Leaderboard calcule automatiquement les commissions et affiche les points du trimestre
+
+2. **Sauvegarde mensuelle (optionnelle)** : Un bouton "Valider le mois" permet a l'admin de sauvegarder les points dans la base de donnees pour l'historique trimestriel
+
+3. **Fin de trimestre** : L'admin peut voir le cumul des points et attribuer le prix au gagnant
+
+---
+
+## Constantes de configuration
 
 ```javascript
-// Lors de la lecture d'une facture existante
-const normalizePaymentTypes = (paymentType) => {
-  if (paymentType === 'All') {
-    return ['USA', 'Niamey', 'France'];
-  }
-  return paymentType.split(',');
+// src/utils/commissionCalculations.js
+export const COMMISSION_CONFIG = {
+  MAKETOU_FEE_RATE: 0.05,       // 5% de frais Maketou
+  BASE_COMMISSION_RATE: 0.10,   // 10% de commission de base
+  TIER_THRESHOLD: 850000,       // Seuil pour le bonus palier
+  TIER_BONUS: 10000,            // Bonus palier 850k
+  TOP_SELLER_BONUS: 15000,      // Bonus meilleur vendeur
+  POINTS_BY_POSITION: [10, 5, 3, 0]  // Points par position
 };
 ```
