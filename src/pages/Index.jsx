@@ -47,7 +47,7 @@ const Index = () => {
     number: "",
   });
   const [service, setService] = useState("");
-  const [paymentType, setPaymentType] = useState("USA");
+  const [selectedPayments, setSelectedPayments] = useState(["USA"]);
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState(0);
 
@@ -59,7 +59,17 @@ const Index = () => {
       setClientInfo(parsedData.clientInfo || { firstName: "", lastName: "", email: "", whatsapp: "" });
       setInvoice(parsedData.invoice || { date: "", number: "" });
       setService(parsedData.service || "");
-      setPaymentType(parsedData.paymentType || "USA");
+      // Normalize old payment types for backward compatibility
+      const savedPayments = parsedData.selectedPayments || parsedData.paymentType;
+      if (Array.isArray(savedPayments)) {
+        setSelectedPayments(savedPayments);
+      } else if (savedPayments === 'All') {
+        setSelectedPayments(['USA', 'Niamey', 'France']);
+      } else if (savedPayments) {
+        setSelectedPayments(savedPayments.split(','));
+      } else {
+        setSelectedPayments(['USA']);
+      }
       setSalesRep(parsedData.salesRep || "");
       setGrandTotal(parsedData.grandTotal || 0);
       setSelectedCurrency(parsedData.selectedCurrency || "XOF");
@@ -78,7 +88,7 @@ const Index = () => {
       clientInfo,
       invoice,
       service,
-      paymentType,
+      selectedPayments,
       salesRep,
       grandTotal,
       selectedCurrency,
@@ -88,7 +98,7 @@ const Index = () => {
     clientInfo,
     invoice,
     service,
-    paymentType,
+    selectedPayments,
     salesRep,
     grandTotal,
     selectedCurrency,
@@ -103,8 +113,8 @@ const Index = () => {
     setService(e.target.value);
   };
 
-  const handlePaymentTypeChange = (value) => {
-    setPaymentType(value);
+  const handlePaymentToggle = (newPayments) => {
+    setSelectedPayments(newPayments);
   };
 
   const handleSalesRepChange = (value) => {
@@ -163,7 +173,7 @@ const Index = () => {
           service_description: sanitizeText(validated.service),
           amount: validated.amount,
           currency: selectedCurrency,
-          payment_type: paymentType,
+          payment_type: selectedPayments.join(','),
           sales_representative: salesRep,
           template_number: templateNumber,
           status: 'generated'
@@ -179,7 +189,7 @@ const Index = () => {
         clientInfo,
         invoice,
         service,
-        paymentInfo: { type: paymentType },
+        paymentInfo: { types: selectedPayments },
         salesRep,
         grandTotal,
         selectedCurrency,
@@ -204,7 +214,7 @@ const Index = () => {
       number: generateRandomInvoiceNumber(),
     });
     setService("Formation en développement web - Programme complet de 6 mois incluant HTML, CSS, JavaScript, React et Node.js");
-    setPaymentType("France");
+    setSelectedPayments(["France"]);
     setSalesRep("Josphin");
     setGrandTotal(1500);
   };
@@ -220,7 +230,7 @@ const Index = () => {
       number: generateRandomInvoiceNumber(),
     });
     setService("");
-    setPaymentType("USA");
+    setSelectedPayments(["USA"]);
     setSalesRep("");
     setGrandTotal(0);
     localStorage.removeItem("formData");
@@ -328,8 +338,8 @@ const Index = () => {
             </div>
 
             <PaymentTypeSection 
-              paymentType={paymentType}
-              handlePaymentTypeChange={handlePaymentTypeChange}
+              selectedPayments={selectedPayments}
+              handlePaymentToggle={handlePaymentToggle}
             />
 
             <SalesRepSection 

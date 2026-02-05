@@ -10,6 +10,7 @@ const Template2 = ({ data = {} }) => {
     invoice = { date: '', number: '' }, 
     service = '', 
     paymentInfo = { type: 'USA' }, 
+    // Support both old format (type: 'USA') and new format (types: ['USA', 'Wave'])
     salesRep = '',
     selectedCurrency = 'XOF',
     grandTotal = 0
@@ -65,40 +66,83 @@ const Template2 = ({ data = {} }) => {
         <div className="bg-white rounded-lg shadow-md p-4">
           <h3 className="text-lg font-bold text-blue-600 mb-2">Modalités de paiement</h3>
           <div className="bg-gray-50 p-3 rounded border-l-4 border-blue-600 space-y-2">
-            {(paymentInfo.type === 'USA' || paymentInfo.type === 'All') && (
-              <div className="space-y-0.5">
-                <p className="font-semibold text-blue-600 text-xs">💳 Paiement aux USA</p>
-                <p className="text-xs">Via Moneygram / Western Union / Ria</p>
-                <div className="mt-1 space-y-0.5">
-                  <p className="text-xs"><span className="font-medium">Prénom:</span> Idriss</p>
-                  <p className="text-xs"><span className="font-medium">Nom:</span> Laouali Abdou</p>
-                  <p className="text-xs"><span className="font-medium">Adresse:</span> Bellevue, Seattle, Washington, USA</p>
-                </div>
-              </div>
-            )}
-            {(paymentInfo.type === 'Niamey' || paymentInfo.type === 'All') && (
-              <div className={paymentInfo.type === 'All' ? 'space-y-0.5 pt-2 border-t border-gray-300' : 'space-y-0.5'}>
-                <p className="font-semibold text-blue-600 text-xs">💳 Paiement à Niamey</p>
-                <p className="text-xs">Via Moneygram / Western Union / Ria</p>
-                <div className="mt-1 space-y-0.5">
-                  <p className="text-xs"><span className="font-medium">Prénom:</span> Judicael Mahoutin</p>
-                  <p className="text-xs"><span className="font-medium">Nom:</span> Djidonou</p>
-                  <p className="text-xs"><span className="font-medium">Adresse:</span> Niamey - Niger</p>
-                </div>
-              </div>
-            )}
-            {(paymentInfo.type === 'France' || paymentInfo.type === 'All') && (
-              <div className={paymentInfo.type === 'All' ? 'space-y-0.5 pt-2 border-t border-gray-300' : 'space-y-0.5'}>
-                <p className="font-semibold text-blue-600 text-xs">🏦 Virement bancaire en France</p>
-                <div className="mt-1 space-y-0.5 text-xs">
-                  <p><span className="font-medium">Titulaire:</span> Idriss Laouali Abdou</p>
-                  <p><span className="font-medium">IBAN:</span> FR76 1695 8000 0185 1038 3000 480</p>
-                  <p><span className="font-medium">BIC/SWIFT:</span> QNTOFRP1XXX</p>
-                  <p><span className="font-medium">BIC/SWIFT correspondante:</span> BNPAFRPP</p>
-                  <p><span className="font-medium">Adresse:</span> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
-                </div>
-              </div>
-            )}
+            {(() => {
+              const types = paymentInfo.types || (paymentInfo.type === 'All' ? ['USA', 'Niamey', 'France'] : [paymentInfo.type]);
+              const showSeparator = (index) => index > 0 ? 'space-y-0.5 pt-2 border-t border-gray-300' : 'space-y-0.5';
+              let itemIndex = 0;
+              
+              return (
+                <>
+                  {types.includes('USA') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">🇺🇸 Paiement aux USA</p>
+                      <p className="text-xs">Via Moneygram / Western Union / Ria</p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-xs"><span className="font-medium">Prénom:</span> Idriss</p>
+                        <p className="text-xs"><span className="font-medium">Nom:</span> Laouali Abdou</p>
+                        <p className="text-xs"><span className="font-medium">Adresse:</span> Bellevue, Seattle, Washington, USA</p>
+                      </div>
+                    </div>
+                  )}
+                  {types.includes('Niamey') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">🇳🇪 Paiement à Niamey</p>
+                      <p className="text-xs">Via Moneygram / Western Union / Ria</p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-xs"><span className="font-medium">Prénom:</span> Judicael Mahoutin</p>
+                        <p className="text-xs"><span className="font-medium">Nom:</span> Djidonou</p>
+                        <p className="text-xs"><span className="font-medium">Adresse:</span> Niamey - Niger</p>
+                      </div>
+                    </div>
+                  )}
+                  {types.includes('France') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">🇫🇷 Virement bancaire en France</p>
+                      <div className="mt-1 space-y-0.5 text-xs">
+                        <p><span className="font-medium">Titulaire:</span> Idriss Laouali Abdou</p>
+                        <p><span className="font-medium">IBAN:</span> FR76 1695 8000 0185 1038 3000 480</p>
+                        <p><span className="font-medium">BIC/SWIFT:</span> QNTOFRP1XXX</p>
+                        <p><span className="font-medium">BIC/SWIFT correspondante:</span> BNPAFRPP</p>
+                        <p><span className="font-medium">Adresse:</span> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
+                      </div>
+                    </div>
+                  )}
+                  {types.includes('Maketou') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">📱 Maketou - Mobile Money</p>
+                      <p className="text-xs">Wave, Orange Money, Airtel Money, MTN Money</p>
+                      <p className="text-xs mt-1"><span className="font-medium">Un lien de paiement vous sera envoyé par email/WhatsApp</span></p>
+                    </div>
+                  )}
+                  {types.includes('MyNITA') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">💳 MyNITA (Niger)</p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-xs"><span className="font-medium">Prénom:</span> Aminou</p>
+                        <p className="text-xs"><span className="font-medium">Nom:</span> Laouali Abdou</p>
+                        <p className="text-xs"><span className="font-medium">Téléphone:</span> +227 76929799</p>
+                      </div>
+                    </div>
+                  )}
+                  {types.includes('Wave') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">🌊 Wave (Sénégal/Côte d'Ivoire)</p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-xs"><span className="font-medium">Prénom:</span> Aminou</p>
+                        <p className="text-xs"><span className="font-medium">Nom:</span> Laouali Abdou</p>
+                        <p className="text-xs"><span className="font-medium">Téléphone:</span> +227 76929799</p>
+                      </div>
+                    </div>
+                  )}
+                  {types.includes('Especes') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">💵 Paiement en espèces</p>
+                      <p className="text-xs">Contactez votre commercial pour organiser le paiement</p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
