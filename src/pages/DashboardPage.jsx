@@ -262,7 +262,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Leaderboard */}
+      {/* Leaderboard - passe les données avec payment_type pour le calcul des frais Maketou */}
       <Leaderboard invoices={invoices} periodLabel={getPeriodLabel()} periodDates={getPeriodDates()} />
 
       {/* Overall Stats */}

@@ -270,6 +270,48 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_rep_points: {
+        Row: {
+          created_at: string | null
+          id: string
+          month: number
+          net_sales: number
+          points: number
+          position: number
+          sales_rep: string
+          total_commission: number
+          total_sales: number
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          month: number
+          net_sales?: number
+          points?: number
+          position: number
+          sales_rep: string
+          total_commission?: number
+          total_sales?: number
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          month?: number
+          net_sales?: number
+          points?: number
+          position?: number
+          sales_rep?: string
+          total_commission?: number
+          total_sales?: number
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -312,6 +354,7 @@ export type Database = {
           created_at: string
           id: string
           last_status_change: string
+          payment_type: string
           sales_representative: string
           service_description: string
           status: string
