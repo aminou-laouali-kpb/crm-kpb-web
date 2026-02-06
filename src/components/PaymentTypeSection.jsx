@@ -98,12 +98,13 @@ const PaymentTypeSection = ({ selectedPayments, handlePaymentToggle }) => {
                   : 'border-border hover:border-primary/50'
               }`}
             >
-              <Checkbox
-                id={option.id}
-                checked={isSelected}
-                onCheckedChange={() => handleToggle(option.id)}
-                className="mt-1"
-              />
+            <Checkbox
+              id={option.id}
+              checked={isSelected}
+              onCheckedChange={() => handleToggle(option.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1"
+            />
               <Label htmlFor={option.id} className="cursor-pointer flex-1">
                 <div className="font-semibold flex items-center gap-2">
                   <span>{option.icon}</span>
