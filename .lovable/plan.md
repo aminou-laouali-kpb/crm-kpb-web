@@ -1,248 +1,119 @@
 
-# Plan : Frais Maketou 5% et Systeme de Commissions/Points
+# Plan : Correction des problemes de selection de paiement et bilans commerciaux
 
-## Resume
+## Resume des problemes
 
-Ce plan couvre deux fonctionnalites principales :
-
-1. **Gestion des frais Maketou (5%)** : Les paiements via Maketou sont soumis a 5% de frais de service, donc seuls 95% du montant sont enregistres comme revenus reels.
-
-2. **Systeme de commissions et points** : Afficher sur le Leaderboard les commissions mensuelles et les points accumules par chaque commercial.
+1. **Moyens de paiement** : Double declenchement de l'evenement click causant un toggle/anti-toggle
+2. **Bilans commerciaux** : Restriction aux admins uniquement apres la derniere migration de securite
 
 ---
 
-## Partie 1 : Frais Maketou (5%)
+## Probleme 1 : Selection des moyens de paiement
 
-### Logique metier
+### Cause
+Le composant `PaymentTypeSection.jsx` a deux gestionnaires d'evenements qui interferent :
+- `onClick` sur le conteneur `<div>` parent
+- `onCheckedChange` sur le composant `Checkbox`
 
-- Maketou preleve **5% de frais** sur chaque transaction
-- Le montant reel recu = **montant facture x 0.95**
-- Cette deduction s'applique **uniquement** aux factures dont le `payment_type` contient "Maketou"
+Quand on clique sur le checkbox, les deux evenements se declenchent, provoquant une selection puis une deselection immediate.
 
-### Modifications necessaires
-
-**1. Fonction RPC `get_invoice_stats`**
-
-Ajouter le champ `payment_type` au retour pour permettre le calcul des frais Maketou cote client :
-
-```sql
-RETURNS TABLE(
-  id uuid, 
-  amount numeric, 
-  sales_representative text, 
-  status text, 
-  created_at timestamp with time zone, 
-  user_id uuid, 
-  service_description text,
-  last_status_change timestamp with time zone,
-  payment_type text  -- NOUVEAU
-)
-```
-
-**2. Fonction utilitaire de calcul du montant reel**
+### Solution
+Empecher la propagation de l'evenement sur le `Checkbox` avec `stopPropagation()` :
 
 ```javascript
-// src/utils/commissionCalculations.js
-export const MAKETOU_FEE_RATE = 0.05; // 5%
-
-export const getNetAmount = (amount, paymentType) => {
-  // Si le paiement inclut Maketou, deduire 5%
-  if (paymentType && paymentType.includes('Maketou')) {
-    return amount * (1 - MAKETOU_FEE_RATE);
-  }
-  return amount;
-};
+<Checkbox
+  id={option.id}
+  checked={isSelected}
+  onCheckedChange={(e) => {
+    // Ne pas propager pour eviter le double toggle
+    handleToggle(option.id);
+  }}
+  onClick={(e) => e.stopPropagation()}
+  className="mt-1"
+/>
 ```
 
-**3. Application dans le Dashboard et Leaderboard**
-
-Le montant net sera utilise pour :
-- Calcul des revenus reels affiches
-- Calcul des commissions (base sur le montant reel recu)
+### Fichier a modifier
+`src/components/PaymentTypeSection.jsx`
 
 ---
 
-## Partie 2 : Systeme de Commissions
+## Probleme 2 : Bilans commerciaux (Dashboard)
 
-### Regles de commission
+### Cause
+Deux elements bloquent :
 
-| Type | Calcul | Condition |
-|------|--------|-----------|
-| Commission de base | 10% du montant net recu | Chaque vente payee |
-| Bonus palier | +10 000 FCFA | Total ventes >= 850 000 FCFA |
-| Bonus 1er vendeur | +15 000 FCFA | Meilleur vendeur du mois |
+1. **Migration de securite** : La fonction `get_invoice_stats` exige maintenant le role `admin`
+2. **RLS sur la table invoices** : La politique SELECT ne permet de voir que ses propres factures
 
-### Formule de calcul
+### Analyse des utilisateurs actuels
 
-```javascript
-// Pour chaque commercial
-const calculateCommission = (rep) => {
-  // 1. Calculer le montant net total (avec deduction Maketou)
-  const netSales = repInvoices.reduce((sum, inv) => {
-    const amount = parseFloat(inv.amount);
-    return sum + getNetAmount(amount, inv.payment_type);
-  }, 0);
-  
-  // 2. Commission de base : 10%
-  const baseCommission = netSales * 0.10;
-  
-  // 3. Bonus palier 850k
-  const tierBonus = netSales >= 850000 ? 10000 : 0;
-  
-  // 4. Bonus 1er vendeur (attribue apres le tri)
-  const topSellerBonus = isTopSeller ? 15000 : 0;
-  
-  // Total
-  return {
-    baseCommission,
-    tierBonus,
-    topSellerBonus,
-    totalCommission: baseCommission + tierBonus + topSellerBonus
-  };
-};
-```
+| Email | Role |
+|-------|------|
+| karatoupostbac@gmail.com | admin |
+| donald@karatoupourtous.org | (aucun) |
+| josphin@karatoupourtous.com | (aucun) |
+| nadia@karatoupourtous.org | (aucun) |
+| richard@karatoupourtous.org | (aucun) |
 
----
+Seul l'admin peut voir toutes les factures actuellement.
 
-## Partie 3 : Systeme de Points
+### Solution proposee
 
-### Regles d'attribution des points
-
-| Position | Points du mois |
-|----------|----------------|
-| 1er | 10 points |
-| 2eme | 5 points |
-| 3eme | 3 points |
-| 4eme+ | 0 point |
-
-### Stockage des points
-
-Il faut creer une nouvelle table pour stocker l'historique des points :
+Modifier la fonction `get_invoice_stats` pour permettre aux utilisateurs authentifies de voir les statistiques (sans informations clients sensibles), car cette fonction ne retourne deja pas de donnees clients (pas de nom, email, WhatsApp).
 
 ```sql
-CREATE TABLE sales_rep_points (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  sales_rep text NOT NULL,  -- Nom du commercial
-  month integer NOT NULL,   -- Mois (1-12)
-  year integer NOT NULL,    -- Annee
-  points integer NOT NULL DEFAULT 0,
-  position integer NOT NULL,  -- Position au classement
-  total_sales numeric NOT NULL,  -- Total des ventes ce mois
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(sales_rep, month, year)  -- Un seul enregistrement par commercial/mois
-);
+-- Au lieu de bloquer tous les non-admins
+IF NOT has_role(auth.uid(), 'admin'::app_role) THEN
+  RAISE EXCEPTION 'Access denied';
+END IF;
+
+-- Permettre l'acces en lecture aux utilisateurs authentifies
+-- La fonction ne retourne pas de donnees clients sensibles
+IF auth.uid() IS NULL THEN
+  RAISE EXCEPTION 'Authentication required';
+END IF;
 ```
 
-### Calcul des points trimestriels
+### Alternative plus restrictive
+Si vous preferez que seuls les admins voient les bilans de tous les commerciaux, alors le comportement actuel est correct, mais l'interface devrait indiquer clairement que cette fonctionnalite est reservee aux administrateurs.
 
-```javascript
-// Trimestres : Jan-Mar, Avr-Juin, Juil-Sep, Oct-Dec
-const getQuarterlyPoints = (rep, currentMonth, currentYear) => {
-  const quarter = Math.floor((currentMonth - 1) / 3);
-  const quarterStartMonth = quarter * 3 + 1;
-  const quarterEndMonth = quarterStartMonth + 2;
-  
-  // Sommer les points du trimestre en cours
-  return pointsHistory
-    .filter(p => 
-      p.sales_rep === rep && 
-      p.year === currentYear && 
-      p.month >= quarterStartMonth && 
-      p.month <= quarterEndMonth
-    )
-    .reduce((sum, p) => sum + p.points, 0);
-};
-```
+### Fichiers/ressources a modifier
+1. Migration SQL pour mettre a jour `get_invoice_stats`
 
 ---
 
-## Partie 4 : Affichage sur le Leaderboard
+## Modifications techniques detaillees
 
-### Nouveau design du tableau
+### 1. PaymentTypeSection.jsx
 
-```text
-+----------------------------------------------------------+
-|  Classement du mois - Janvier 2026                       |
-+----------------------------------------------------------+
-|                                                          |
-|  🏆 1. Josphin                                           |
-|      Ventes: 1 200 000 FCFA (2 ventes)                   |
-|      Net: 1 140 000 FCFA (apres frais Maketou)           |
-|      Commission: 114 000 + 10 000 + 15 000 = 139 000 FCFA|
-|      Points: 10 pts (mois) | 25 pts (trimestre)          |
-|                                                          |
-|  🥈 2. Nadia                                             |
-|      Ventes: 900 000 FCFA (3 ventes)                     |
-|      Net: 900 000 FCFA                                   |
-|      Commission: 90 000 + 10 000 = 100 000 FCFA          |
-|      Points: 5 pts (mois) | 15 pts (trimestre)           |
-|                                                          |
-+----------------------------------------------------------+
+**Avant :**
+```jsx
+<Checkbox
+  id={option.id}
+  checked={isSelected}
+  onCheckedChange={() => handleToggle(option.id)}
+  className="mt-1"
+/>
 ```
 
-### Informations affichees par commercial
+**Apres :**
+```jsx
+<Checkbox
+  id={option.id}
+  checked={isSelected}
+  onCheckedChange={() => handleToggle(option.id)}
+  onClick={(e) => e.stopPropagation()}
+  className="mt-1"
+/>
+```
 
-| Element | Description |
-|---------|-------------|
-| Ventes totales | Montant brut des factures payees |
-| Montant net | Apres deduction frais Maketou (5%) |
-| Commission de base | 10% du montant net |
-| Bonus palier | +10k si >= 850k |
-| Bonus 1er | +15k pour le meilleur vendeur |
-| Total commission | Somme a payer au commercial |
-| Points du mois | 10/5/3/0 selon la position |
-| Points trimestre | Cumul des 3 mois du trimestre |
-
----
-
-## Fichiers a creer/modifier
-
-| Fichier | Action | Description |
-|---------|--------|-------------|
-| `supabase/migrations/xxx.sql` | Creer | Table `sales_rep_points` + MAJ RPC |
-| `src/utils/commissionCalculations.js` | Creer | Fonctions de calcul commissions/points |
-| `src/components/Leaderboard.jsx` | Modifier | Afficher commissions et points |
-| `src/pages/DashboardPage.jsx` | Modifier | Passer payment_type au Leaderboard |
-
----
-
-## Migration SQL
+### 2. Migration SQL pour get_invoice_stats
 
 ```sql
--- 1. Creer la table des points
-CREATE TABLE public.sales_rep_points (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  sales_rep text NOT NULL,
-  month integer NOT NULL CHECK (month >= 1 AND month <= 12),
-  year integer NOT NULL CHECK (year >= 2020),
-  points integer NOT NULL DEFAULT 0,
-  position integer NOT NULL CHECK (position >= 1 AND position <= 4),
-  total_sales numeric NOT NULL DEFAULT 0,
-  net_sales numeric NOT NULL DEFAULT 0,
-  total_commission numeric NOT NULL DEFAULT 0,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE(sales_rep, month, year)
-);
-
--- 2. RLS pour la table
-ALTER TABLE public.sales_rep_points ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admins can manage points"
-  ON public.sales_rep_points
-  FOR ALL
-  USING (has_role(auth.uid(), 'admin'))
-  WITH CHECK (has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "All users can view points"
-  ON public.sales_rep_points
-  FOR SELECT
-  USING (true);
-
--- 3. Mettre a jour la fonction RPC pour inclure payment_type
 DROP FUNCTION IF EXISTS public.get_invoice_stats(timestamp with time zone, timestamp with time zone);
 
-CREATE FUNCTION public.get_invoice_stats(
+CREATE OR REPLACE FUNCTION public.get_invoice_stats(
   p_start_date timestamp with time zone DEFAULT NULL,
   p_end_date timestamp with time zone DEFAULT NULL
 )
@@ -257,11 +128,18 @@ RETURNS TABLE(
   last_status_change timestamp with time zone,
   payment_type text
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = 'public'
 AS $$
+BEGIN
+  -- Verifier que l'utilisateur est authentifie
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+  
+  RETURN QUERY
   SELECT 
     i.id,
     i.amount,
@@ -284,31 +162,33 @@ AS $$
       AND (p_start_date IS NULL OR i.last_status_change >= p_start_date)
       AND (p_end_date IS NULL OR i.last_status_change <= p_end_date)
     );
+END;
 $$;
 ```
 
 ---
 
-## Workflow d'utilisation
+## Resume des fichiers a modifier
 
-1. **En temps reel** : Le Leaderboard calcule automatiquement les commissions et affiche les points du trimestre
-
-2. **Sauvegarde mensuelle (optionnelle)** : Un bouton "Valider le mois" permet a l'admin de sauvegarder les points dans la base de donnees pour l'historique trimestriel
-
-3. **Fin de trimestre** : L'admin peut voir le cumul des points et attribuer le prix au gagnant
+| Fichier | Modification |
+|---------|--------------|
+| `src/components/PaymentTypeSection.jsx` | Ajouter `onClick={(e) => e.stopPropagation()}` au Checkbox |
+| Migration SQL | Permettre l'acces a `get_invoice_stats` a tous les utilisateurs authentifies |
 
 ---
 
-## Constantes de configuration
+## Note de securite
 
-```javascript
-// src/utils/commissionCalculations.js
-export const COMMISSION_CONFIG = {
-  MAKETOU_FEE_RATE: 0.05,       // 5% de frais Maketou
-  BASE_COMMISSION_RATE: 0.10,   // 10% de commission de base
-  TIER_THRESHOLD: 850000,       // Seuil pour le bonus palier
-  TIER_BONUS: 10000,            // Bonus palier 850k
-  TOP_SELLER_BONUS: 15000,      // Bonus meilleur vendeur
-  POINTS_BY_POSITION: [10, 5, 3, 0]  // Points par position
-};
-```
+La fonction `get_invoice_stats` ne retourne **pas** d'informations clients sensibles :
+- PAS de client_first_name
+- PAS de client_last_name  
+- PAS de client_email
+- PAS de client_whatsapp
+
+Elle retourne uniquement : id, amount, sales_representative, status, dates, et payment_type.
+
+Donc permettre a tous les utilisateurs authentifies d'y acceder ne pose pas de probleme de securite car :
+1. Les commerciaux ont besoin de ces stats pour leur motivation (Leaderboard)
+2. Aucune donnee personnelle client n'est exposee
+3. La table `invoices` reste protegee par RLS pour les requetes directes
+
