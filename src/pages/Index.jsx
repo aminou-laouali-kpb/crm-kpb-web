@@ -52,8 +52,11 @@ const Index = () => {
   const [grandTotal, setGrandTotal] = useState(0);
 
   useEffect(() => {
-    // Load form data from localStorage on component mount
-    const savedFormData = localStorage.getItem("formData");
+    // Load form data from sessionStorage on component mount
+    // Using sessionStorage instead of localStorage for PII protection:
+    // - Data clears automatically when tab/browser closes
+    // - Reduces exposure on shared devices
+    const savedFormData = sessionStorage.getItem("formData");
     if (savedFormData) {
       const parsedData = JSON.parse(savedFormData);
       setClientInfo(parsedData.clientInfo || { firstName: "", lastName: "", email: "", whatsapp: "" });
@@ -83,7 +86,8 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    // Save form data to localStorage whenever it changes
+    // Save form data to sessionStorage whenever it changes
+    // Using sessionStorage for PII protection - clears on tab close
     const formData = {
       clientInfo,
       invoice,
@@ -93,7 +97,7 @@ const Index = () => {
       grandTotal,
       selectedCurrency,
     };
-    localStorage.setItem("formData", JSON.stringify(formData));
+    sessionStorage.setItem("formData", JSON.stringify(formData));
   }, [
     clientInfo,
     invoice,
@@ -233,7 +237,7 @@ const Index = () => {
     setSelectedPayments(["USA"]);
     setSalesRep("");
     setGrandTotal(0);
-    localStorage.removeItem("formData");
+    sessionStorage.removeItem("formData");
   };
 
   return (

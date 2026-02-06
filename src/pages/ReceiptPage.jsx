@@ -85,8 +85,9 @@ const ReceiptPage = () => {
   };
 
   useEffect(() => {
-    // Load form data from localStorage on component mount
-    const savedFormData = localStorage.getItem("receiptFormData");
+    // Load form data from sessionStorage on component mount
+    // Using sessionStorage instead of localStorage for PII protection
+    const savedFormData = sessionStorage.getItem("receiptFormData");
     if (savedFormData) {
       const parsedData = JSON.parse(savedFormData);
       setBillTo(parsedData.billTo || "");
@@ -99,14 +100,15 @@ const ReceiptPage = () => {
       setFooter(parsedData.footer || "Thank you");
       setSelectedCurrency(parsedData.selectedCurrency || "INR");
     } else {
-      // Initialize with default values if nothing in localStorage
+      // Initialize with default values if nothing in sessionStorage
       setInvoice((prev) => ({ ...prev, number: generateRandomInvoiceNumber() }));
       setItems([{ name: "", description: "", quantity: 0, amount: 0, total: 0 }]);
     }
   }, []);
 
   useEffect(() => {
-    // Save form data to localStorage whenever it changes
+    // Save form data to sessionStorage whenever it changes
+    // Using sessionStorage for PII protection - clears on tab close
     const formData = {
       billTo,
       invoice,
@@ -118,7 +120,7 @@ const ReceiptPage = () => {
       footer,
       selectedCurrency,
     };
-    localStorage.setItem("receiptFormData", JSON.stringify(formData));
+    sessionStorage.setItem("receiptFormData", JSON.stringify(formData));
   }, [billTo, invoice, yourCompany, cashier, items, taxPercentage, notes, footer, selectedCurrency]);
 
   const handleDownloadPDF = async () => {
