@@ -31,7 +31,11 @@ export const useAuth = (requireAuth = true) => {
   }, [navigate, requireAuth]);
 
   const signOut = async () => {
-    // Clear all form data from localStorage to prevent PII exposure on shared devices
+    // Clear all form data from sessionStorage and localStorage
+    // to prevent PII exposure on shared devices
+    sessionStorage.removeItem('formData');
+    sessionStorage.removeItem('receiptFormData');
+    // Also clear localStorage for legacy data and billData (src/app.js)
     localStorage.removeItem('formData');
     localStorage.removeItem('receiptFormData');
     localStorage.removeItem('billData');
