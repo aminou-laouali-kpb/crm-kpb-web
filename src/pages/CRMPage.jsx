@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const statusLabels = {
   generated: 'Facture générée',
@@ -72,6 +73,16 @@ const PAYMENT_TYPES = [
   { value: 'France', label: 'Paiement en France' },
 ];
 
+const PAYMENT_OPTIONS = [
+  { id: 'USA', label: 'Paiement aux USA', icon: '🇺🇸' },
+  { id: 'Niamey', label: 'Paiement à Niamey', icon: '🇳🇪' },
+  { id: 'France', label: 'Virement bancaire France', icon: '🇫🇷' },
+  { id: 'Maketou', label: 'Maketou (Mobile Money)', icon: '📱' },
+  { id: 'MyNITA', label: 'MyNITA (Niger)', icon: '💳' },
+  { id: 'Wave', label: 'Wave (Sénégal/CI)', icon: '🌊' },
+  { id: 'Especes', label: 'Espèces', icon: '💵' }
+];
+
 const CRMPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
@@ -87,6 +98,9 @@ const CRMPage = () => {
   const [filterService, setFilterService] = useState('all');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editForm, setEditForm] = useState({
     client_first_name: '',
@@ -151,7 +165,19 @@ const CRMPage = () => {
     }
   };
 
-  const handleStatusChange = async (invoiceId, newStatus) => {
+  const handleStatusChange = async (invoiceId, newStatus, currentPaymentType = '') => {
+    if (newStatus === 'paid') {
+      // Ouvrir la boîte de dialogue pour choisir le mode de paiement
+      setPendingStatusChange({ invoiceId, newStatus });
+      setSelectedPaymentMethod(currentPaymentType || '');
+      setPaymentDialogOpen(true);
+      return;
+    }
+    // Pour les autres statuts, mise à jour directe
+    await updateInvoiceStatus(invoiceId, newStatus);
+  };
+
+  const updateInvoiceStatus = async (invoiceId, newStatus) => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase
@@ -165,6 +191,34 @@ const CRMPage = () => {
       fetchInvoices();
     } catch (error) {
       toast.error("Erreur lors de la mise à jour du statut");
+    }
+  };
+
+  const handlePaymentConfirm = async () => {
+    if (!selectedPaymentMethod) {
+      toast.error("Veuillez sélectionner un mode de paiement");
+      return;
+    }
+    
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { error } = await supabase
+        .from('invoices')
+        .update({ 
+          status: 'paid',
+          payment_type: selectedPaymentMethod 
+        })
+        .eq('id', pendingStatusChange.invoiceId);
+        
+      if (error) throw error;
+      
+      toast.success("Facture marquée comme payée");
+      setPaymentDialogOpen(false);
+      setPendingStatusChange(null);
+      setSelectedPaymentMethod('');
+      fetchInvoices();
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
     }
   };
 
@@ -536,7 +590,7 @@ const CRMPage = () => {
                   <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <Select
                       value={invoice.status}
-                      onValueChange={(value) => handleStatusChange(invoice.id, value)}
+                      onValueChange={(value) => handleStatusChange(invoice.id, value, invoice.payment_type)}
                     >
                       <SelectTrigger className={`w-32 md:w-48 text-xs md:text-sm ${statusColors[invoice.status]}`}>
                         <SelectValue />
@@ -666,6 +720,53 @@ const CRMPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Payment Confirmation Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmer le paiement</DialogTitle>
+            <DialogDescription>
+              Sélectionnez le mode de paiement utilisé par le client
+            </DialogDescription>
+          </DialogHeader>
+          <RadioGroup 
+            value={selectedPaymentMethod} 
+            onValueChange={setSelectedPaymentMethod}
+            className="grid gap-3 py-4"
+          >
+            {PAYMENT_OPTIONS.map((option) => (
+              <div 
+                key={option.id} 
+                className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                  selectedPaymentMethod === option.id 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => setSelectedPaymentMethod(option.id)}
+              >
+                <RadioGroupItem value={option.id} id={`payment-${option.id}`} />
+                <Label htmlFor={`payment-${option.id}`} className="cursor-pointer flex items-center gap-2 flex-1">
+                  <span>{option.icon}</span>
+                  <span>{option.label}</span>
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => {
+              setPaymentDialogOpen(false);
+              setPendingStatusChange(null);
+              setSelectedPaymentMethod('');
+            }}>
+              Annuler
+            </Button>
+            <Button onClick={handlePaymentConfirm}>
+              Confirmer le paiement
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
