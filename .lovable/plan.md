@@ -1,86 +1,247 @@
 
 
-# Plan : Amelioration des rapports avec statistiques detaillees
+# Plan : Correction de l'affichage des factures et ajout de la mise a jour du mode de paiement
 
-## Ce qui sera ameliore
+## Resume des problemes identifies
 
-Le fichier `src/pages/ReportsPage.jsx` sera reecrit avec les sections suivantes dans cet ordre :
+### Probleme 1 : Les factures ne s'affichent pas pour les commerciaux
 
-### 1. Resume Global (existant, ameliore)
-Memes 4 cartes mais avec un design plus clair.
+**Cause identifiee** : La politique RLS (Row Level Security) sur la table `invoices` restreint la visibilite :
+```sql
+USING ((user_id = auth.uid()) OR has_role(auth.uid(), 'admin'::app_role))
+```
 
-### 2. Suivi des Paiements par Mode (NOUVEAU - prioritaire)
-Cartes individuelles pour chaque mode de paiement (USA/Idriss, France/Virement, Niamey, Wave, Maketou, MyNITA, Especes) montrant :
-- Nombre de factures payees via ce mode
-- Montant total encaisse via ce mode
-- Pourcentage du total encaisse
-- Barre de progression visuelle
+Cette politique fait que chaque commercial ne peut voir **que ses propres factures** (celles ou `user_id` correspond a son ID).
 
-Basee uniquement sur les factures avec `status === 'paid'` et payees dans la periode (via `last_status_change`). Le champ `payment_type` peut contenir plusieurs valeurs separees par virgule (ex: "USA,France") donc il faudra splitter et comptabiliser chaque mode individuellement.
+**Utilisateurs actuels :**
 
-### 3. Top Services (NOUVEAU)
-Classement des services les plus demandes avec :
-- Nombre de factures par service
-- Montant total et montant paye
-- Medaille or/argent/bronze pour le top 3
-- Barre de progression proportionnelle au meilleur service
+| Email | Role | user_id |
+|-------|------|---------|
+| karatoupostbac@gmail.com | admin | 11e5296a-... |
+| donald@karatoupourtous.org | (aucun) | 31c828e1-... |
+| richard@karatoupourtous.org | (aucun) | 8c874f09-... |
+| josphin@karatoupourtous.com | (aucun) | b9730604-... |
+| nadia@karatoupourtous.org | (aucun) | 4e925b61-... |
 
-### 4. Repartition par Statut (existant, garde)
-PieChart + liste des statuts.
+Seul l'admin peut voir toutes les factures. Les commerciaux ne voient que les leurs.
 
-### 5. Graphique Performances par Service (existant, garde)
-BarChart comparant montant total vs paye.
+### Probleme 2 : Mise a jour du mode de paiement lors du marquage "Facture payee"
 
-### 6. Performances par Commercial (existant, garde)
-Table avec stats par commercial.
+Actuellement, la fonction `handleStatusChange` ne met a jour que le champ `status`. Les commerciaux veulent pouvoir modifier le mode de paiement (payment_type) quand ils marquent une facture comme payee.
 
-### Note sur les "pays"
-Il n'y a pas de champ "pays" dans la base de donnees. Les modes de paiement (USA, France, Niamey) servent de proxy geographique. La section "Suivi des Paiements par Mode" repondra a ce besoin en montrant ou l'argent est envoye.
+---
 
-## Modifications techniques
+## Solution proposee
 
-### Fichier unique : `src/pages/ReportsPage.jsx`
+### 1. Affichage des factures - Deux options possibles
 
-**Nouvelle fonction `getPaymentTrackingStats()`** :
-```javascript
-const getPaymentTrackingStats = () => {
-  const { startDate, endDate } = getPeriodDates();
-  const paymentMap = {};
-  let totalPaid = 0;
+**Option A (Recommandee) : Creer un role "commercial" pour voir toutes les factures**
+
+Attribuer un role `commercial` a tous les vendeurs et mettre a jour la politique RLS pour leur permettre de voir toutes les factures :
+
+```sql
+-- Ajouter 'commercial' au type enum app_role
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'commercial';
+
+-- Mettre a jour la politique RLS
+DROP POLICY "Sales reps can view own invoices" ON public.invoices;
+
+CREATE POLICY "Sales reps can view invoices"
+  ON public.invoices
+  FOR SELECT
+  USING (
+    user_id = auth.uid() 
+    OR has_role(auth.uid(), 'admin'::app_role)
+    OR has_role(auth.uid(), 'commercial'::app_role)
+  );
+
+-- Attribuer le role commercial aux vendeurs
+INSERT INTO user_roles (user_id, role)
+SELECT id, 'commercial'::app_role 
+FROM auth.users 
+WHERE email IN ('donald@karatoupourtous.org', 'richard@karatoupourtous.org', 'josphin@karatoupourtous.com', 'nadia@karatoupourtous.org')
+ON CONFLICT (user_id, role) DO NOTHING;
+```
+
+**Option B : Permettre a tous les utilisateurs authentifies de voir les factures**
+
+Si tous les utilisateurs doivent voir toutes les factures :
+```sql
+CREATE POLICY "Authenticated users can view invoices"
+  ON public.invoices
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+```
+
+### 2. Mise a jour du mode de paiement lors du statut "Facture payee"
+
+**Modifications du code CRMPage.jsx :**
+
+1. Ajouter un etat pour gerer la boite de dialogue de paiement
+2. Quand l'utilisateur choisit "paid", afficher une popup pour selectionner le mode de paiement
+3. Mettre a jour le statut ET le payment_type en meme temps
+
+```text
++-----------------------------------------------------+
+|        Confirmer le paiement                        |
++-----------------------------------------------------+
+|                                                     |
+|  Mode de paiement utilise par le client :           |
+|                                                     |
+|  [ ] Paiement aux USA                               |
+|  [x] Paiement a Niamey                              |
+|  [ ] Virement France                                |
+|  [ ] Maketou                                        |
+|  [ ] MyNITA                                         |
+|  [ ] Wave                                           |
+|  [ ] Especes                                        |
+|                                                     |
+|  [Annuler]                [Confirmer le paiement]   |
++-----------------------------------------------------+
+```
+
+---
+
+## Modifications techniques detaillees
+
+### 1. Migration SQL
+
+```sql
+-- Ajouter le role 'commercial' au type enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'commercial';
+
+-- Mettre a jour la politique SELECT sur invoices
+DROP POLICY IF EXISTS "Sales reps can view own invoices" ON public.invoices;
+
+CREATE POLICY "Sales reps can view invoices"
+  ON public.invoices
+  FOR SELECT
+  USING (
+    user_id = auth.uid() 
+    OR has_role(auth.uid(), 'admin'::app_role)
+    OR has_role(auth.uid(), 'commercial'::app_role)
+  );
+
+-- Attribuer le role commercial aux vendeurs existants
+INSERT INTO public.user_roles (user_id, role)
+VALUES 
+  ('31c828e1-759b-4ec9-9d1e-97d0e098a3fd', 'commercial'),
+  ('8c874f09-f0bd-49be-9ed2-268a120038f7', 'commercial'),
+  ('b9730604-3efc-4c6c-a994-e73b1ac02a65', 'commercial'),
+  ('4e925b61-0cd9-4fbc-93a4-9c61fdf11aa5', 'commercial')
+ON CONFLICT (user_id, role) DO NOTHING;
+```
+
+### 2. Modification de CRMPage.jsx
+
+**Nouveaux etats a ajouter :**
+```jsx
+const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+const [pendingStatusChange, setPendingStatusChange] = useState(null);
+const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+```
+
+**Options de paiement disponibles :**
+```jsx
+const PAYMENT_OPTIONS = [
+  { id: 'USA', label: 'Paiement aux USA' },
+  { id: 'Niamey', label: 'Paiement a Niamey' },
+  { id: 'France', label: 'Virement France' },
+  { id: 'Maketou', label: 'Maketou (Mobile Money)' },
+  { id: 'MyNITA', label: 'MyNITA (Niger)' },
+  { id: 'Wave', label: 'Wave (Senegal/CI)' },
+  { id: 'Especes', label: 'Especes' }
+];
+```
+
+**Logique de changement de statut modifiee :**
+```jsx
+const handleStatusChange = async (invoiceId, newStatus, currentPaymentType) => {
+  if (newStatus === 'paid') {
+    // Ouvrir la boite de dialogue pour choisir le mode de paiement
+    setPendingStatusChange({ invoiceId, newStatus });
+    setSelectedPaymentMethod(currentPaymentType || '');
+    setPaymentDialogOpen(true);
+    return;
+  }
+  // Pour les autres statuts, mise a jour directe
+  await updateInvoiceStatus(invoiceId, newStatus);
+};
+
+const handlePaymentConfirm = async () => {
+  if (!selectedPaymentMethod) {
+    toast.error("Veuillez selectionner un mode de paiement");
+    return;
+  }
   
-  // Filtrer les factures payees dans la periode
-  const paidInvoices = invoices.filter(inv => {
-    if (inv.status !== 'paid' || !inv.last_status_change) return false;
-    const paymentDate = new Date(inv.last_status_change);
-    return paymentDate >= startDate && paymentDate <= endDate;
-  });
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { error } = await supabase
+    .from('invoices')
+    .update({ 
+      status: 'paid',
+      payment_type: selectedPaymentMethod 
+    })
+    .eq('id', pendingStatusChange.invoiceId);
+    
+  if (error) {
+    toast.error("Erreur lors de la mise a jour");
+    return;
+  }
   
-  paidInvoices.forEach(inv => {
-    const amount = parseFloat(inv.amount);
-    totalPaid += amount;
-    // payment_type peut contenir plusieurs valeurs separees par virgule
-    const types = (inv.payment_type || 'Non specifie').split(',').map(t => t.trim());
-    const splitAmount = amount / types.length;
-    types.forEach(type => {
-      if (!paymentMap[type]) paymentMap[type] = { count: 0, amount: 0 };
-      paymentMap[type].count += 1;
-      paymentMap[type].amount += splitAmount;
-    });
-  });
-  
-  return { stats: Object.entries(paymentMap).sort((a,b) => b[1].amount - a[1].amount), totalPaid };
+  toast.success("Facture marquee comme payee");
+  setPaymentDialogOpen(false);
+  fetchInvoices();
 };
 ```
 
-**Nouvelle fonction `getTopServices()`** :
-```javascript
-// Reutilise getServiceStats() existante mais ajoute un tri et ranking
+**Nouvelle boite de dialogue a ajouter :**
+```jsx
+<Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Confirmer le paiement</DialogTitle>
+      <DialogDescription>
+        Selectionnez le mode de paiement utilise par le client
+      </DialogDescription>
+    </DialogHeader>
+    <RadioGroup 
+      value={selectedPaymentMethod} 
+      onValueChange={setSelectedPaymentMethod}
+    >
+      {PAYMENT_OPTIONS.map((option) => (
+        <div key={option.id} className="flex items-center space-x-2">
+          <RadioGroupItem value={option.id} id={option.id} />
+          <Label htmlFor={option.id}>{option.label}</Label>
+        </div>
+      ))}
+    </RadioGroup>
+    <div className="flex justify-end gap-3">
+      <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+        Annuler
+      </Button>
+      <Button onClick={handlePaymentConfirm}>
+        Confirmer le paiement
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
 ```
 
-**Nouvelle section UI "Suivi des Paiements"** avec des cartes colorees par mode, incluant une icone representative (drapeau/symbole), le montant, le nombre de factures et un pourcentage.
+---
 
-**Nouvelle section UI "Top Services"** avec classement visuel (medailles), barres de progression.
+## Resume des fichiers a modifier
 
-### Aucune modification de base de donnees necessaire
-Toutes les donnees sont deja disponibles via `get_invoice_stats`.
+| Fichier | Modification |
+|---------|--------------|
+| Migration SQL | Ajouter role 'commercial', MAJ politique RLS, attribuer roles |
+| `src/pages/CRMPage.jsx` | Ajouter popup de confirmation paiement avec selection mode |
+
+---
+
+## Avantages de cette solution
+
+1. **Securite preservee** : Seuls les commerciaux autorises (avec le role) peuvent voir toutes les factures
+2. **Flexibilite** : On peut facilement retirer l'acces a un commercial en supprimant son role
+3. **Traçabilite** : Le mode de paiement reel est enregistre au moment du paiement
+4. **UX amelioree** : Le commercial confirme explicitement le paiement avec le bon mode
 
