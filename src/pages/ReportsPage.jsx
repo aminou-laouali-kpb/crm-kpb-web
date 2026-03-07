@@ -287,22 +287,29 @@ const ReportsPage = () => {
     toast.info("Génération du PDF en cours...");
     try {
       await new Promise(resolve => setTimeout(resolve, 500));
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', scrollY: -window.scrollY });
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const canvas = await html2canvas(reportRef.current, { scale: 1.5, useCORS: true, logging: false, backgroundColor: '#ffffff', scrollY: -window.scrollY });
+
       const imgWidth = 210;
       const pageHeight = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pxPerMm = canvas.width / imgWidth;
+      const pageHeightPx = Math.floor(pageHeight * pxPerMm);
+      const totalPages = Math.ceil(canvas.height / pageHeightPx);
+
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) pdf.addPage();
+        const sliceHeight = Math.min(pageHeightPx, canvas.height - i * pageHeightPx);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const ctx = pageCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, i * pageHeightPx, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+        const pageImg = pageCanvas.toDataURL('image/jpeg', 0.75);
+        const sliceHeightMm = (sliceHeight / canvas.width) * imgWidth;
+        pdf.addImage(pageImg, 'JPEG', 0, 0, imgWidth, sliceHeightMm, undefined, 'FAST');
       }
+
       pdf.save(`Rapport_${MONTHS[parseInt(selectedMonth)].label}_${selectedYear}.pdf`);
       toast.success("Rapport PDF exporté avec succès!");
     } catch (error) {
