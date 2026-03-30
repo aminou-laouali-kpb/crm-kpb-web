@@ -203,26 +203,56 @@ const CRMPage = () => {
       toast.error("Veuillez sélectionner un mode de paiement");
       return;
     }
+    if (!receiptFile) {
+      toast.error("Veuillez télécharger le reçu de paiement");
+      return;
+    }
     
+    setUploadingReceipt(true);
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Upload receipt file
+      const fileExt = receiptFile.name.split('.').pop();
+      const filePath = `${pendingStatusChange.invoiceId}/${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('payment-receipts')
+        .upload(filePath, receiptFile);
+      
+      if (uploadError) throw uploadError;
+
+      // Update invoice with status, payment type, and receipt URL
       const { error } = await supabase
         .from('invoices')
         .update({ 
           status: 'paid',
-          payment_type: selectedPaymentMethod 
+          payment_type: selectedPaymentMethod,
+          receipt_url: filePath
         })
         .eq('id', pendingStatusChange.invoiceId);
         
       if (error) throw error;
+
+      // Log the action
+      try {
+        await supabase.rpc('create_audit_log', {
+          p_action: 'STATUS_CHANGE',
+          p_table_name: 'invoices',
+          p_record_id: pendingStatusChange.invoiceId,
+          p_metadata: { new_status: 'paid', payment_method: selectedPaymentMethod, has_receipt: true }
+        });
+      } catch (e) { /* non-critical */ }
       
-      toast.success("Facture marquée comme payée");
+      toast.success("Facture marquée comme payée avec reçu");
       setPaymentDialogOpen(false);
       setPendingStatusChange(null);
       setSelectedPaymentMethod('');
+      setReceiptFile(null);
       fetchInvoices();
     } catch (error) {
       toast.error("Erreur lors de la mise à jour");
+    } finally {
+      setUploadingReceipt(false);
     }
   };
 
