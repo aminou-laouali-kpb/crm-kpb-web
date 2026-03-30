@@ -10,6 +10,7 @@ const CRMPage = lazy(() => import('./pages/CRMPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const AccountingPage = lazy(() => import('./pages/AccountingPage'));
+const ActivityLogsPage = lazy(() => import('./pages/ActivityLogsPage'));
 const Index = lazy(() => import('./pages/Index'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 
