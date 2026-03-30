@@ -102,6 +102,8 @@ const CRMPage = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editForm, setEditForm] = useState({
     client_first_name: '',
