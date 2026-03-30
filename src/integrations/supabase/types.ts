@@ -358,6 +358,7 @@ export type Database = {
           id: string
           last_status_change: string
           payment_type: string
+          receipt_url: string
           sales_representative: string
           service_description: string
           status: string
