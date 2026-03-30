@@ -87,6 +87,7 @@ const PAYMENT_OPTIONS = [
 const CRMPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const { hasAccess: hasAccountingAccess } = useAccountingAccess();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
