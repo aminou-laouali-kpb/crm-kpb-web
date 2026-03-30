@@ -481,7 +481,8 @@ const ReportsPage = () => {
                     {paymentTracking.stats.map((pm) => {
                       const IconComp = PAYMENT_ICONS[pm.name] || DollarSign;
                       return (
-                        <div key={pm.name} className="bg-muted/30 p-4 rounded-lg border border-border hover:border-primary/50 transition-colors">
+                        <div key={pm.name} className="bg-muted/30 p-4 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer"
+                          onClick={() => setPaymentDrilldown(pm.name)}>
                           <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                               <IconComp className="h-5 w-5 text-primary" />
@@ -496,6 +497,7 @@ const ReportsPage = () => {
                             <Progress value={pm.percentage} className="h-2 flex-1" />
                             <span className="text-xs font-medium text-muted-foreground w-12 text-right">{pm.percentage.toFixed(1)}%</span>
                           </div>
+                          <p className="text-xs text-primary mt-2">Cliquez pour voir les détails →</p>
                         </div>
                       );
                     })}
