@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -14,73 +14,79 @@ const formatCurrency = (amount, currency = 'XOF') => {
 };
 
 // Export to Excel with multiple sheets
-export const exportAccountingToExcel = (data, period) => {
+export const exportAccountingToExcel = async (data, period) => {
   const { invoices, expenses, plannedIncome, stats } = data;
   
-  // Create workbook
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
   
   // Sheet 1: Summary
-  const summaryData = [
-    ['Rapport Comptable - ' + period],
-    [''],
-    ['Métrique', 'Montant (XOF)'],
-    ['Revenus totaux (ventes payées)', stats.totalRevenue],
-    ['Dépenses totales', stats.totalExpenses],
-    ['Solde net', stats.netBalance],
-    ['Revenus en attente', stats.pendingIncome],
-    ['Nombre de ventes', stats.salesCount],
-    ['Nombre de dépenses', stats.expensesCount],
-  ];
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-  wsSummary['!cols'] = [{ wch: 30 }, { wch: 20 }];
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé');
+  const wsSummary = wb.addWorksheet('Résumé');
+  wsSummary.columns = [{ width: 30 }, { width: 20 }];
+  wsSummary.addRow(['Rapport Comptable - ' + period]);
+  wsSummary.addRow([]);
+  wsSummary.addRow(['Métrique', 'Montant (XOF)']);
+  wsSummary.addRow(['Revenus totaux (ventes payées)', stats.totalRevenue]);
+  wsSummary.addRow(['Dépenses totales', stats.totalExpenses]);
+  wsSummary.addRow(['Solde net', stats.netBalance]);
+  wsSummary.addRow(['Revenus en attente', stats.pendingIncome]);
+  wsSummary.addRow(['Nombre de ventes', stats.salesCount]);
+  wsSummary.addRow(['Nombre de dépenses', stats.expensesCount]);
   
   // Sheet 2: Expenses
-  const expensesHeader = ['Date', 'Description', 'Catégorie', 'Montant (XOF)', 'Méthode de paiement', 'Statut'];
-  const expensesRows = expenses.map(exp => [
-    format(new Date(exp.expense_date), 'dd/MM/yyyy', { locale: fr }),
-    exp.description,
-    exp.expense_categories?.name || 'Non catégorisé',
-    exp.amount,
-    exp.payment_method || '-',
-    exp.status === 'paid' ? 'Payé' : exp.status === 'pending' ? 'En attente' : exp.status
-  ]);
-  const wsExpenses = XLSX.utils.aoa_to_sheet([expensesHeader, ...expensesRows]);
-  wsExpenses['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 12 }];
-  XLSX.utils.book_append_sheet(wb, wsExpenses, 'Dépenses');
+  const wsExpenses = wb.addWorksheet('Dépenses');
+  wsExpenses.columns = [{ width: 12 }, { width: 30 }, { width: 20 }, { width: 15 }, { width: 18 }, { width: 12 }];
+  wsExpenses.addRow(['Date', 'Description', 'Catégorie', 'Montant (XOF)', 'Méthode de paiement', 'Statut']);
+  expenses.forEach(exp => {
+    wsExpenses.addRow([
+      format(new Date(exp.expense_date), 'dd/MM/yyyy', { locale: fr }),
+      exp.description,
+      exp.expense_categories?.name || 'Non catégorisé',
+      exp.amount,
+      exp.payment_method || '-',
+      exp.status === 'paid' ? 'Payé' : exp.status === 'pending' ? 'En attente' : exp.status
+    ]);
+  });
   
-  // Sheet 3: Sales (Paid Invoices)
-  const salesHeader = ['Date', 'N° Facture', 'Client', 'Email', 'Montant (XOF)', 'Commercial'];
-  const salesRows = invoices.map(inv => [
-    format(new Date(inv.invoice_date), 'dd/MM/yyyy', { locale: fr }),
-    inv.invoice_number,
-    `${inv.client_first_name} ${inv.client_last_name}`,
-    inv.client_email,
-    inv.amount,
-    inv.sales_representative
-  ]);
-  const wsSales = XLSX.utils.aoa_to_sheet([salesHeader, ...salesRows]);
-  wsSales['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
-  XLSX.utils.book_append_sheet(wb, wsSales, 'Ventes');
+  // Sheet 3: Sales
+  const wsSales = wb.addWorksheet('Ventes');
+  wsSales.columns = [{ width: 12 }, { width: 15 }, { width: 25 }, { width: 25 }, { width: 15 }, { width: 15 }];
+  wsSales.addRow(['Date', 'N° Facture', 'Client', 'Email', 'Montant (XOF)', 'Commercial']);
+  invoices.forEach(inv => {
+    wsSales.addRow([
+      format(new Date(inv.invoice_date), 'dd/MM/yyyy', { locale: fr }),
+      inv.invoice_number,
+      `${inv.client_first_name} ${inv.client_last_name}`,
+      inv.client_email,
+      inv.amount,
+      inv.sales_representative
+    ]);
+  });
   
   // Sheet 4: Planned Income
-  const incomeHeader = ['Date échéance', 'Description', 'Source', 'Montant (XOF)', 'Statut', 'Récurrent'];
-  const incomeRows = plannedIncome.map(inc => [
-    format(new Date(inc.due_date), 'dd/MM/yyyy', { locale: fr }),
-    inc.description,
-    inc.source || '-',
-    inc.amount,
-    inc.status === 'received' ? 'Reçu' : inc.status === 'pending' ? 'En attente' : inc.status,
-    inc.is_recurring ? 'Oui' : 'Non'
-  ]);
-  const wsIncome = XLSX.utils.aoa_to_sheet([incomeHeader, ...incomeRows]);
-  wsIncome['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 10 }];
-  XLSX.utils.book_append_sheet(wb, wsIncome, 'Entrées planifiées');
+  const wsIncome = wb.addWorksheet('Entrées planifiées');
+  wsIncome.columns = [{ width: 15 }, { width: 30 }, { width: 20 }, { width: 15 }, { width: 12 }, { width: 10 }];
+  wsIncome.addRow(['Date échéance', 'Description', 'Source', 'Montant (XOF)', 'Statut', 'Récurrent']);
+  plannedIncome.forEach(inc => {
+    wsIncome.addRow([
+      format(new Date(inc.due_date), 'dd/MM/yyyy', { locale: fr }),
+      inc.description,
+      inc.source || '-',
+      inc.amount,
+      inc.status === 'received' ? 'Reçu' : inc.status === 'pending' ? 'En attente' : inc.status,
+      inc.is_recurring ? 'Oui' : 'Non'
+    ]);
+  });
   
   // Generate and download
   const fileName = `rapport_comptable_${period.replace(/\s/g, '_')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 // Export to PDF
