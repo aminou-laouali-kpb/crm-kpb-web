@@ -345,6 +345,17 @@ const CRMPage = () => {
   const handleDeleteConfirm = async () => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Log before delete
+      try {
+        await supabase.rpc('create_audit_log', {
+          p_action: 'DELETE',
+          p_table_name: 'invoices',
+          p_record_id: selectedInvoice.id,
+          p_metadata: { invoice_number: selectedInvoice.invoice_number, amount: selectedInvoice.amount }
+        });
+      } catch (e) { /* non-critical */ }
+
       const { error } = await supabase
         .from('invoices')
         .delete()
