@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Pencil, Trash2, Calculator, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Search, Pencil, Trash2, Calculator, RotateCcw, Upload, FileDown, ClipboardList } from 'lucide-react';
+import { useAdminCheck } from '../hooks/useAdminCheck';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
