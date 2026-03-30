@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Download, Calendar, FileText, Trophy, CreditCard, TrendingUp, DollarSign, Banknote, Smartphone, Globe, MapPin } from 'lucide-react';
+import { ArrowLeft, Download, Calendar, FileText, Trophy, CreditCard, TrendingUp, DollarSign, Banknote, Smartphone, Globe, MapPin, FileDown, X } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
   Select,
@@ -13,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
