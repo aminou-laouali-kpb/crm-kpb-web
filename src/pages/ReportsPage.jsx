@@ -187,7 +187,36 @@ const ReportsPage = () => {
       .map(([name, data]) => ({ name, ...data, percentage: totalPaid > 0 ? (data.amount / totalPaid) * 100 : 0 }))
       .sort((a, b) => b.amount - a.amount);
 
-    return { stats, totalPaid, totalCount: paidInvoices.length };
+    return { stats, totalPaid, totalCount: paidInvoices.length, paidInvoices };
+  };
+
+  const getInvoicesForPaymentMode = (paymentMode) => {
+    const { startDate, endDate } = getPeriodDates();
+    return invoices.filter(inv => {
+      if (inv.status !== 'paid' || !inv.last_status_change) return false;
+      const d = new Date(inv.last_status_change);
+      if (d < startDate || d > endDate) return false;
+      const types = (inv.payment_type || '').split(',').map(t => t.trim());
+      return types.includes(paymentMode);
+    });
+  };
+
+  const handleDownloadReceipt = async (receiptUrl) => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.storage
+        .from('payment-receipts')
+        .download(receiptUrl);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = receiptUrl.split('/').pop();
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error("Erreur lors du téléchargement du reçu");
+    }
   };
 
   const getTopServices = () => {
