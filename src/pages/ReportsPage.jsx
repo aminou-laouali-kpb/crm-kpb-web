@@ -636,6 +636,62 @@ const ReportsPage = () => {
           </>
         )}
       </div>
+
+      {/* Payment Drilldown Dialog */}
+      <Dialog open={!!paymentDrilldown} onOpenChange={(open) => !open && setPaymentDrilldown(null)}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Factures payées via {paymentDrilldown}</DialogTitle>
+            <DialogDescription>{periodLabel}</DialogDescription>
+          </DialogHeader>
+          {paymentDrilldown && (() => {
+            const drillInvoices = getInvoicesForPaymentMode(paymentDrilldown);
+            const totalDrill = drillInvoices.reduce((s, i) => s + parseFloat(i.amount), 0);
+            return (
+              <div>
+                <div className="flex justify-between items-center mb-4 p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm text-muted-foreground">{drillInvoices.length} facture(s)</span>
+                  <span className="font-bold text-foreground">{formatCurrency(totalDrill, 'XOF')}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 text-muted-foreground">Commercial</th>
+                        <th className="text-right p-2 text-muted-foreground">Montant</th>
+                        <th className="text-left p-2 text-muted-foreground">Service</th>
+                        <th className="text-left p-2 text-muted-foreground">Date paiement</th>
+                        <th className="text-center p-2 text-muted-foreground">Reçu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drillInvoices.map(inv => (
+                        <tr key={inv.id} className="border-b border-border/50">
+                          <td className="p-2 text-foreground">{inv.sales_representative}</td>
+                          <td className="p-2 text-right font-medium text-foreground">{formatCurrency(parseFloat(inv.amount), 'XOF')}</td>
+                          <td className="p-2 text-muted-foreground text-xs max-w-[150px] truncate">{inv.service_description}</td>
+                          <td className="p-2 text-muted-foreground">
+                            {inv.last_status_change ? new Date(inv.last_status_change).toLocaleDateString('fr-FR') : '-'}
+                          </td>
+                          <td className="p-2 text-center">
+                            {inv.receipt_url ? (
+                              <Button variant="ghost" size="sm" onClick={() => handleDownloadReceipt(inv.receipt_url)}>
+                                <FileDown className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
