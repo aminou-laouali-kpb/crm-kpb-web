@@ -85,7 +85,7 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const reportRef = useRef(null);
-
+  const [paymentDrilldown, setPaymentDrilldown] = useState(null);
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
