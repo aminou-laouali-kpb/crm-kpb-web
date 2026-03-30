@@ -263,8 +263,8 @@ const AccountingPage = () => {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => {
-                exportAccountingToExcel(
+              onClick={async () => {
+                await exportAccountingToExcel(
                   { invoices, expenses, plannedIncome, stats, expensesByCategory },
                   getPeriodLabel()
                 );
