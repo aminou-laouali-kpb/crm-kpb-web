@@ -176,6 +176,7 @@ export type Database = {
           invoice_number: string
           last_status_change: string
           payment_type: string
+          receipt_url: string | null
           sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status: Database["public"]["Enums"]["invoice_status"]
@@ -196,6 +197,7 @@ export type Database = {
           invoice_number: string
           last_status_change?: string
           payment_type: string
+          receipt_url?: string | null
           sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status?: Database["public"]["Enums"]["invoice_status"]
@@ -216,6 +218,7 @@ export type Database = {
           invoice_number?: string
           last_status_change?: string
           payment_type?: string
+          receipt_url?: string | null
           sales_representative?: Database["public"]["Enums"]["sales_rep"]
           service_description?: string
           status?: Database["public"]["Enums"]["invoice_status"]
@@ -355,6 +358,7 @@ export type Database = {
           id: string
           last_status_change: string
           payment_type: string
+          receipt_url: string
           sales_representative: string
           service_description: string
           status: string

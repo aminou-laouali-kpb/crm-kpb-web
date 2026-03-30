@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Pencil, Trash2, Calculator, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Search, Pencil, Trash2, Calculator, RotateCcw, Upload, FileDown, ClipboardList } from 'lucide-react';
+import { useAdminCheck } from '../hooks/useAdminCheck';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
@@ -86,6 +87,7 @@ const PAYMENT_OPTIONS = [
 const CRMPage = () => {
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const { hasAccess: hasAccountingAccess } = useAccountingAccess();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,8 @@ const CRMPage = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editForm, setEditForm] = useState({
     client_first_name: '',
@@ -199,26 +203,56 @@ const CRMPage = () => {
       toast.error("Veuillez sélectionner un mode de paiement");
       return;
     }
+    if (!receiptFile) {
+      toast.error("Veuillez télécharger le reçu de paiement");
+      return;
+    }
     
+    setUploadingReceipt(true);
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Upload receipt file
+      const fileExt = receiptFile.name.split('.').pop();
+      const filePath = `${pendingStatusChange.invoiceId}/${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('payment-receipts')
+        .upload(filePath, receiptFile);
+      
+      if (uploadError) throw uploadError;
+
+      // Update invoice with status, payment type, and receipt URL
       const { error } = await supabase
         .from('invoices')
         .update({ 
           status: 'paid',
-          payment_type: selectedPaymentMethod 
+          payment_type: selectedPaymentMethod,
+          receipt_url: filePath
         })
         .eq('id', pendingStatusChange.invoiceId);
         
       if (error) throw error;
+
+      // Log the action
+      try {
+        await supabase.rpc('create_audit_log', {
+          p_action: 'STATUS_CHANGE',
+          p_table_name: 'invoices',
+          p_record_id: pendingStatusChange.invoiceId,
+          p_metadata: { new_status: 'paid', payment_method: selectedPaymentMethod, has_receipt: true }
+        });
+      } catch (e) { /* non-critical */ }
       
-      toast.success("Facture marquée comme payée");
+      toast.success("Facture marquée comme payée avec reçu");
       setPaymentDialogOpen(false);
       setPendingStatusChange(null);
       setSelectedPaymentMethod('');
+      setReceiptFile(null);
       fetchInvoices();
     } catch (error) {
       toast.error("Erreur lors de la mise à jour");
+    } finally {
+      setUploadingReceipt(false);
     }
   };
 
@@ -281,6 +315,16 @@ const CRMPage = () => {
 
       if (error) throw error;
 
+      // Log the edit action
+      try {
+        await supabase.rpc('create_audit_log', {
+          p_action: 'EDIT',
+          p_table_name: 'invoices',
+          p_record_id: selectedInvoice.id,
+          p_metadata: { edited_fields: Object.keys(editForm), invoice_number: selectedInvoice.invoice_number }
+        });
+      } catch (e) { /* non-critical */ }
+
       toast.success("Facture modifiée avec succès");
       setEditDialogOpen(false);
       fetchInvoices();
@@ -301,6 +345,17 @@ const CRMPage = () => {
   const handleDeleteConfirm = async () => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Log before delete
+      try {
+        await supabase.rpc('create_audit_log', {
+          p_action: 'DELETE',
+          p_table_name: 'invoices',
+          p_record_id: selectedInvoice.id,
+          p_metadata: { invoice_number: selectedInvoice.invoice_number, amount: selectedInvoice.amount }
+        });
+      } catch (e) { /* non-critical */ }
+
       const { error } = await supabase
         .from('invoices')
         .delete()
@@ -401,6 +456,16 @@ const CRMPage = () => {
             >
               <Calculator className="mr-1 h-4 w-4" />
               Comptabilité
+            </Button>
+          )}
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/activity-logs')} 
+              className="flex-1 sm:flex-none text-xs md:text-sm"
+            >
+              <ClipboardList className="mr-1 h-4 w-4" />
+              Logs
             </Button>
           )}
         </div>
@@ -722,18 +787,27 @@ const CRMPage = () => {
       </AlertDialog>
 
       {/* Payment Confirmation Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog open={paymentDialogOpen} onOpenChange={(open) => {
+        setPaymentDialogOpen(open);
+        if (!open) {
+          setPendingStatusChange(null);
+          setSelectedPaymentMethod('');
+          setReceiptFile(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirmer le paiement</DialogTitle>
             <DialogDescription>
-              Sélectionnez le mode de paiement utilisé par le client
+              Sélectionnez le mode de paiement et téléchargez le reçu
             </DialogDescription>
           </DialogHeader>
+          
+          {/* Payment method selection */}
           <RadioGroup 
             value={selectedPaymentMethod} 
             onValueChange={setSelectedPaymentMethod}
-            className="grid gap-3 py-4"
+            className="grid gap-2 py-2"
           >
             {PAYMENT_OPTIONS.map((option) => (
               <div 
@@ -753,16 +827,54 @@ const CRMPage = () => {
               </div>
             ))}
           </RadioGroup>
-          <div className="flex justify-end gap-3">
+
+          {/* Receipt upload */}
+          <div className="border-t border-border pt-4 mt-2">
+            <Label className="text-sm font-medium mb-2 block">
+              <Upload className="h-4 w-4 inline mr-2" />
+              Reçu de paiement (obligatoire)
+            </Label>
+            <div className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+              receiptFile ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'
+            }`}>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="receipt-upload"
+              />
+              <label htmlFor="receipt-upload" className="cursor-pointer">
+                {receiptFile ? (
+                  <div className="flex items-center justify-center gap-2 text-primary">
+                    <FileDown className="h-5 w-5" />
+                    <span className="text-sm font-medium">{receiptFile.name}</span>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Cliquez pour télécharger le reçu</p>
+                    <p className="text-xs text-muted-foreground mt-1">Image ou PDF</p>
+                  </div>
+                )}
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => {
               setPaymentDialogOpen(false);
               setPendingStatusChange(null);
               setSelectedPaymentMethod('');
+              setReceiptFile(null);
             }}>
               Annuler
             </Button>
-            <Button onClick={handlePaymentConfirm}>
-              Confirmer le paiement
+            <Button 
+              onClick={handlePaymentConfirm} 
+              disabled={!selectedPaymentMethod || !receiptFile || uploadingReceipt}
+            >
+              {uploadingReceipt ? 'Upload en cours...' : 'Confirmer le paiement'}
             </Button>
           </div>
         </DialogContent>

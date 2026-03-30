@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Download, Calendar, FileText, Trophy, CreditCard, TrendingUp, DollarSign, Banknote, Smartphone, Globe, MapPin } from 'lucide-react';
+import { ArrowLeft, Download, Calendar, FileText, Trophy, CreditCard, TrendingUp, DollarSign, Banknote, Smartphone, Globe, MapPin, FileDown, X } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
   Select,
@@ -13,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -78,7 +85,7 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const reportRef = useRef(null);
-
+  const [paymentDrilldown, setPaymentDrilldown] = useState(null);
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
@@ -180,7 +187,36 @@ const ReportsPage = () => {
       .map(([name, data]) => ({ name, ...data, percentage: totalPaid > 0 ? (data.amount / totalPaid) * 100 : 0 }))
       .sort((a, b) => b.amount - a.amount);
 
-    return { stats, totalPaid, totalCount: paidInvoices.length };
+    return { stats, totalPaid, totalCount: paidInvoices.length, paidInvoices };
+  };
+
+  const getInvoicesForPaymentMode = (paymentMode) => {
+    const { startDate, endDate } = getPeriodDates();
+    return invoices.filter(inv => {
+      if (inv.status !== 'paid' || !inv.last_status_change) return false;
+      const d = new Date(inv.last_status_change);
+      if (d < startDate || d > endDate) return false;
+      const types = (inv.payment_type || '').split(',').map(t => t.trim());
+      return types.includes(paymentMode);
+    });
+  };
+
+  const handleDownloadReceipt = async (receiptUrl) => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.storage
+        .from('payment-receipts')
+        .download(receiptUrl);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = receiptUrl.split('/').pop();
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error("Erreur lors du téléchargement du reçu");
+    }
   };
 
   const getTopServices = () => {
@@ -445,7 +481,8 @@ const ReportsPage = () => {
                     {paymentTracking.stats.map((pm) => {
                       const IconComp = PAYMENT_ICONS[pm.name] || DollarSign;
                       return (
-                        <div key={pm.name} className="bg-muted/30 p-4 rounded-lg border border-border hover:border-primary/50 transition-colors">
+                        <div key={pm.name} className="bg-muted/30 p-4 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer"
+                          onClick={() => setPaymentDrilldown(pm.name)}>
                           <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                               <IconComp className="h-5 w-5 text-primary" />
@@ -460,6 +497,7 @@ const ReportsPage = () => {
                             <Progress value={pm.percentage} className="h-2 flex-1" />
                             <span className="text-xs font-medium text-muted-foreground w-12 text-right">{pm.percentage.toFixed(1)}%</span>
                           </div>
+                          <p className="text-xs text-primary mt-2">Cliquez pour voir les détails →</p>
                         </div>
                       );
                     })}
@@ -598,6 +636,62 @@ const ReportsPage = () => {
           </>
         )}
       </div>
+
+      {/* Payment Drilldown Dialog */}
+      <Dialog open={!!paymentDrilldown} onOpenChange={(open) => !open && setPaymentDrilldown(null)}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Factures payées via {paymentDrilldown}</DialogTitle>
+            <DialogDescription>{periodLabel}</DialogDescription>
+          </DialogHeader>
+          {paymentDrilldown && (() => {
+            const drillInvoices = getInvoicesForPaymentMode(paymentDrilldown);
+            const totalDrill = drillInvoices.reduce((s, i) => s + parseFloat(i.amount), 0);
+            return (
+              <div>
+                <div className="flex justify-between items-center mb-4 p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm text-muted-foreground">{drillInvoices.length} facture(s)</span>
+                  <span className="font-bold text-foreground">{formatCurrency(totalDrill, 'XOF')}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 text-muted-foreground">Commercial</th>
+                        <th className="text-right p-2 text-muted-foreground">Montant</th>
+                        <th className="text-left p-2 text-muted-foreground">Service</th>
+                        <th className="text-left p-2 text-muted-foreground">Date paiement</th>
+                        <th className="text-center p-2 text-muted-foreground">Reçu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drillInvoices.map(inv => (
+                        <tr key={inv.id} className="border-b border-border/50">
+                          <td className="p-2 text-foreground">{inv.sales_representative}</td>
+                          <td className="p-2 text-right font-medium text-foreground">{formatCurrency(parseFloat(inv.amount), 'XOF')}</td>
+                          <td className="p-2 text-muted-foreground text-xs max-w-[150px] truncate">{inv.service_description}</td>
+                          <td className="p-2 text-muted-foreground">
+                            {inv.last_status_change ? new Date(inv.last_status_change).toLocaleDateString('fr-FR') : '-'}
+                          </td>
+                          <td className="p-2 text-center">
+                            {inv.receipt_url ? (
+                              <Button variant="ghost" size="sm" onClick={() => handleDownloadReceipt(inv.receipt_url)}>
+                                <FileDown className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
