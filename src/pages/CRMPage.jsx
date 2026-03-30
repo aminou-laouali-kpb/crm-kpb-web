@@ -458,6 +458,16 @@ const CRMPage = () => {
               Comptabilité
             </Button>
           )}
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/activity-logs')} 
+              className="flex-1 sm:flex-none text-xs md:text-sm"
+            >
+              <ClipboardList className="mr-1 h-4 w-4" />
+              Logs
+            </Button>
+          )}
         </div>
       </div>
 
