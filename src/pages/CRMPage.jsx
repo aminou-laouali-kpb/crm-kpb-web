@@ -315,6 +315,16 @@ const CRMPage = () => {
 
       if (error) throw error;
 
+      // Log the edit action
+      try {
+        await supabase.rpc('create_audit_log', {
+          p_action: 'EDIT',
+          p_table_name: 'invoices',
+          p_record_id: selectedInvoice.id,
+          p_metadata: { edited_fields: Object.keys(editForm), invoice_number: selectedInvoice.invoice_number }
+        });
+      } catch (e) { /* non-critical */ }
+
       toast.success("Facture modifiée avec succès");
       setEditDialogOpen(false);
       fetchInvoices();
