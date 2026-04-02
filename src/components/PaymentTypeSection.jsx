@@ -19,6 +19,13 @@ const PAYMENT_OPTIONS = [
     details: 'Judicael Mahoutin Djidonou - Niamey, Niger'
   },
   { 
+    id: 'NiameyAminou', 
+    label: 'Paiement à Niamey (Aminou)', 
+    icon: '🇳🇪',
+    description: 'Via Moneygram/Western Union/Ria',
+    details: 'Aminou Laouali Abdou - +227 78098914'
+  },
+  { 
     id: 'France', 
     label: 'Virement bancaire France', 
     icon: '🇫🇷',

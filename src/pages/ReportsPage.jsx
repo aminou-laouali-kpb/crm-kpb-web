@@ -67,6 +67,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--warning
 const PAYMENT_ICONS = {
   'USA': Globe,
   'Niamey': MapPin,
+  'NiameyAminou': MapPin,
   'France': Globe,
   'Maketou': Smartphone,
   'MyNITA': Smartphone,
