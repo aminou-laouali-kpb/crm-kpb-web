@@ -1,84 +1,38 @@
 
 
-# Plan : Mises a jour CRM, Rapports et Logs d'activite
+# Plan : Ajouter le mode de paiement "Niamey (Aminou)"
 
-## 1. Upload de recu de paiement avant validation (CRM)
+## Nouveau mode de paiement
 
-### Base de donnees
-- Creer un bucket de stockage `payment-receipts` (public: false)
-- Ajouter une colonne `receipt_url` (text, nullable) a la table `invoices`
-- Politiques RLS sur le bucket : les utilisateurs authentifies peuvent uploader, les admins/commerciaux peuvent lire
+- **ID** : `NiameyAminou`
+- **Label** : Paiement a Niamey (Aminou)
+- **Icon** : `🇳🇪`
+- **Details** : Aminou Laouali Abdou - Tel: +227 78098914 - Via Moneygram/Western Union/Ria
 
-### Code (CRMPage.jsx)
-Modifier le dialogue de confirmation de paiement pour ajouter :
-- Un champ d'upload de fichier (image ou PDF)
-- Upload vers le bucket `payment-receipts` avec le chemin `{invoice_id}/{filename}`
-- Stocker l'URL dans `receipt_url` lors de la mise a jour du statut
-- Le recu est **obligatoire** avant de pouvoir cliquer "Confirmer"
+## Fichiers a modifier (7 fichiers)
 
-### Visualisation des recus (Dashboard/Rapports)
-- Ajouter une icone cliquable sur les factures payees pour telecharger/voir le recu
-- Dans les rapports, ajouter un lien de telechargement dans le detail des factures par mode de paiement
+### 1. `src/components/PaymentTypeSection.jsx`
+Ajouter une nouvelle entree dans `PAYMENT_OPTIONS` apres l'option "Niamey" existante :
+```
+{ id: 'NiameyAminou', label: 'Paiement a Niamey (Aminou)', icon: '🇳🇪', description: 'Via Moneygram/Western Union/Ria', details: 'Aminou Laouali Abdou - +227 78098914' }
+```
 
----
+### 2. `src/pages/CRMPage.jsx`
+- Ajouter `{ value: 'NiameyAminou', label: 'Paiement a Niamey (Aminou)' }` dans `PAYMENT_TYPES`
+- Ajouter `{ id: 'NiameyAminou', label: 'Niamey (Aminou)', icon: '🇳🇪' }` dans `PAYMENT_OPTIONS`
 
-## 2. Drill-down sur les modes de paiement (Rapports)
+### 3-5. Templates (`Template1.jsx`, `Template2.jsx`, `Template3.jsx`)
+Dans chaque template, ajouter un bloc de rendu pour `types.includes('NiameyAminou')` apres le bloc "Niamey" existant, avec :
+- Prenom : Aminou
+- Nom : Laouali Abdou
+- Telephone : +227 78098914
+- Adresse : Niamey - Niger
 
-### Code (ReportsPage.jsx)
-- Rendre chaque carte de mode de paiement cliquable
-- Au clic, ouvrir un Dialog listant les factures payees via ce mode dans le mois selectionne
-- Afficher : numero de facture, client, montant, commercial, date de paiement
-- Ajouter un lien pour telecharger le recu si disponible
+### 6. `src/pages/ReportsPage.jsx`
+Ajouter `'NiameyAminou': MapPin` dans `PAYMENT_ICONS`
 
----
+### 7. `src/pages/Index.jsx`
+Mettre a jour la ligne de fallback `'All'` pour inclure `'NiameyAminou'` si necessaire (ou laisser tel quel si `'All'` ne concerne que les 3 modes originaux)
 
-## 3. Modification client dans le CRM
-
-Cette fonctionnalite **existe deja** (bouton crayon sur chaque facture, dialogue d'edition avec prenom, nom, email, WhatsApp, montant). Aucune modification necessaire.
-
----
-
-## 4. Logs d'activite (Admin uniquement)
-
-### Base de donnees
-- La table `audit_logs` existe deja
-- Mettre a jour la fonction `create_audit_log` pour accepter plus d'actions (ex: 'STATUS_CHANGE', 'EDIT', 'LOGIN', 'EXPORT')
-- Ajouter une politique INSERT pour que les utilisateurs authentifies puissent inserer des logs
-
-### Code
-- Creer une nouvelle page `src/pages/ActivityLogsPage.jsx`
-- Accessible uniquement aux admins (via `useAdminCheck`)
-- Afficher les logs recents avec : utilisateur, action, table, date, details (metadata)
-- Filtres par date et par type d'action
-- Ajouter la route `/activity-logs` dans App.jsx
-- Ajouter un bouton "Logs d'activite" dans le CRM (visible admin uniquement)
-
-### Logging des actions
-Ajouter des appels `create_audit_log` dans :
-- `handleStatusChange` / `handlePaymentConfirm` (changement de statut)
-- `handleEditSubmit` (modification de facture)
-- `handleDeleteConfirm` (suppression)
-- `exportToPDF` dans ReportsPage (export de rapport)
-
----
-
-## 5. Verification des calculs
-
-Verifier et corriger si necessaire :
-- Les totaux dans le Dashboard vs les Rapports utilisent la meme logique (created_at pour total, last_status_change pour paye)
-- Le split des payment_type avec virgule dans les rapports
-- La deduction des 5% Maketou dans le Leaderboard
-- Les taux de conversion (paidInvoices / totalInvoices)
-
----
-
-## Resume des fichiers a modifier
-
-| Fichier | Modification |
-|---------|-------------|
-| Migration SQL | Bucket storage, colonne receipt_url, MAJ create_audit_log, INSERT policy audit_logs |
-| `src/pages/CRMPage.jsx` | Upload de recu dans le dialogue de paiement, logging des actions |
-| `src/pages/ReportsPage.jsx` | Drill-down cliquable sur modes de paiement, lien recu |
-| `src/pages/ActivityLogsPage.jsx` | Nouvelle page logs admin |
-| `src/App.jsx` | Ajouter route /activity-logs |
+Aucune migration de base de donnees necessaire - le `payment_type` est stocke en texte libre.
 
