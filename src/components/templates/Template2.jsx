@@ -95,6 +95,18 @@ const Template2 = ({ data = {} }) => {
                       </div>
                     </div>
                   )}
+                  {types.includes('NiameyAminou') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold text-blue-600 text-xs">🇳🇪 Paiement à Niamey (Aminou)</p>
+                      <p className="text-xs">Via Moneygram / Western Union / Ria</p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-xs"><span className="font-medium">Prénom:</span> Aminou</p>
+                        <p className="text-xs"><span className="font-medium">Nom:</span> Laouali Abdou</p>
+                        <p className="text-xs"><span className="font-medium">Téléphone:</span> +227 78098914</p>
+                        <p className="text-xs"><span className="font-medium">Adresse:</span> Niamey - Niger</p>
+                      </div>
+                    </div>
+                  )}
                   {types.includes('France') && (
                     <div className={showSeparator(itemIndex++)}>
                       <p className="font-semibold text-blue-600 text-xs">🇫🇷 Virement bancaire en France</p>

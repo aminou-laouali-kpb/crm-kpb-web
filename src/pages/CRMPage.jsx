@@ -71,12 +71,14 @@ const PAYMENT_TYPES = [
   { value: 'All', label: 'Toutes les options' },
   { value: 'USA', label: 'Paiement aux USA' },
   { value: 'Niamey', label: 'Paiement à Niamey' },
+  { value: 'NiameyAminou', label: 'Paiement à Niamey (Aminou)' },
   { value: 'France', label: 'Paiement en France' },
 ];
 
 const PAYMENT_OPTIONS = [
   { id: 'USA', label: 'Paiement aux USA', icon: '🇺🇸' },
   { id: 'Niamey', label: 'Paiement à Niamey', icon: '🇳🇪' },
+  { id: 'NiameyAminou', label: 'Niamey (Aminou)', icon: '🇳🇪' },
   { id: 'France', label: 'Virement bancaire France', icon: '🇫🇷' },
   { id: 'Maketou', label: 'Maketou (Mobile Money)', icon: '📱' },
   { id: 'MyNITA', label: 'MyNITA (Niger)', icon: '💳' },
