@@ -69,6 +69,7 @@ const PAYMENT_ICONS = {
   'Niamey': MapPin,
   'NiameyAminou': MapPin,
   'France': Globe,
+  'BOA': Banknote,
   'Maketou': Smartphone,
   'MyNITA': Smartphone,
   'Wave': Smartphone,
