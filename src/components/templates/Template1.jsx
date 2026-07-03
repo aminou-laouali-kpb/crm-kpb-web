@@ -125,6 +125,17 @@ const Template1 = ({ data = {} }) => {
                       <p className="text-xs"><strong>Adresse du titulaire:</strong> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
                     </div>
                   )}
+                  {types.includes('BOA') && (
+                    <div className={showSeparator(itemIndex++)}>
+                      <p className="font-semibold mb-1 text-xs">🏦 Virement bancaire au Niger (Bank Of Africa):</p>
+                      <p className="text-xs"><strong>Banque:</strong> Bank Of Africa - Niger</p>
+                      <p className="text-xs"><strong>Titulaire:</strong> Laouali Abdou Aminou</p>
+                      <p className="text-xs"><strong>IBAN:</strong> NE58 NE03 8010 0100 1614 9100 0788</p>
+                      <p className="text-xs"><strong>BIC/SWIFT:</strong> AFRINENIXXX</p>
+                      <p className="text-xs"><strong>RIB:</strong> NE038 01001 001614910007 88</p>
+                      <p className="text-xs"><strong>Domiciliation:</strong> Niamey - Bobiel, Commune I</p>
+                    </div>
+                  )}
                   {types.includes('Maketou') && (
                     <div className={showSeparator(itemIndex++)}>
                       <p className="font-semibold mb-1 text-xs">📱 Maketou - Mobile Money:</p>

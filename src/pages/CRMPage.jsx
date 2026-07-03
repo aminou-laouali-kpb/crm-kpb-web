@@ -73,6 +73,7 @@ const PAYMENT_TYPES = [
   { value: 'Niamey', label: 'Paiement à Niamey' },
   { value: 'NiameyAminou', label: 'Paiement à Niamey (Aminou)' },
   { value: 'France', label: 'Paiement en France' },
+  { value: 'BOA', label: 'Virement bancaire Niger (BOA)' },
 ];
 
 const PAYMENT_OPTIONS = [
@@ -80,6 +81,7 @@ const PAYMENT_OPTIONS = [
   { id: 'Niamey', label: 'Paiement à Niamey', icon: '🇳🇪' },
   { id: 'NiameyAminou', label: 'Niamey (Aminou)', icon: '🇳🇪' },
   { id: 'France', label: 'Virement bancaire France', icon: '🇫🇷' },
+  { id: 'BOA', label: 'Virement bancaire Niger (BOA)', icon: '🏦' },
   { id: 'Maketou', label: 'Maketou (Mobile Money)', icon: '📱' },
   { id: 'MyNITA', label: 'MyNITA (Niger)', icon: '💳' },
   { id: 'Wave', label: 'Wave (Sénégal/CI)', icon: '🌊' },

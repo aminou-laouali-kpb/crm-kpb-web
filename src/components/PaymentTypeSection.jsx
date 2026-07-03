@@ -33,6 +33,13 @@ const PAYMENT_OPTIONS = [
     details: 'IBAN: FR76 1695 8000 0185 1038 3000 480'
   },
   { 
+    id: 'BOA', 
+    label: 'Virement bancaire Niger (BOA)', 
+    icon: '🏦',
+    description: 'Bank Of Africa - Niger',
+    details: 'Laouali Abdou Aminou - IBAN: NE58 NE03 8010 0100 1614 9100 0788'
+  },
+  { 
     id: 'Maketou', 
     label: 'Maketou', 
     icon: '📱',
