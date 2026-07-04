@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from '../hooks/useAuth';
 import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  ArrowLeft, 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
   Calendar,
   PlusCircle,
   Receipt,
   PiggyBank,
   AlertTriangle,
   FileSpreadsheet,
-  FileText
+  FileText,
+  FileDown,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
@@ -32,46 +30,37 @@ import ExpensesSection from '../components/accounting/ExpensesSection';
 import PlannedIncomeSection from '../components/accounting/PlannedIncomeSection';
 import BudgetsSection from '../components/accounting/BudgetsSection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { exportAccountingToExcel, exportAccountingToPDF } from '../utils/accountingExport';
-
-const MONTHS = [
-  { value: '01', label: 'Janvier' },
-  { value: '02', label: 'Février' },
-  { value: '03', label: 'Mars' },
-  { value: '04', label: 'Avril' },
-  { value: '05', label: 'Mai' },
-  { value: '06', label: 'Juin' },
-  { value: '07', label: 'Juillet' },
-  { value: '08', label: 'Août' },
-  { value: '09', label: 'Septembre' },
-  { value: '10', label: 'Octobre' },
-  { value: '11', label: 'Novembre' },
-  { value: '12', label: 'Décembre' },
-];
+import { MONTHS, getAvailableYears } from '@/constants/months';
+import { useAccountingData } from '@/hooks/useAccountingData';
+import AppLayout from '@/components/layout/AppLayout';
+import { exportAccountingToExcel, exportAccountingToPDF, exportAccountingToCSV } from '../utils/accountingExport';
 
 const AccountingPage = () => {
   const navigate = useNavigate();
-  const { loading: authLoading } = useAuth();
   const { hasAccess, isAdmin, loading: accessLoading } = useAccountingAccess();
-  
-  const [invoices, setInvoices] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [plannedIncome, setPlannedIncome] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
   
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState((currentDate.getMonth() + 1).toString().padStart(2, '0'));
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear().toString());
 
-  const availableYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let year = currentYear + 1; year >= 2020; year--) {
-      years.push(year.toString());
-    }
-    return years;
-  }, []);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  const periodDates = useMemo(() => {
+    const monthIndex = parseInt(selectedMonth) - 1;
+    const year = parseInt(selectedYear);
+    return {
+      startDate: new Date(year, monthIndex, 1),
+      endDate: new Date(year, monthIndex + 1, 0, 23, 59, 59, 999),
+    };
+  }, [selectedMonth, selectedYear]);
+
+  const { invoices, expenses, plannedIncome, isLoading: loading, refetch } = useAccountingData(
+    periodDates.startDate,
+    periodDates.endDate,
+    hasAccess
+  );
+
+  const availableYears = useMemo(() => getAvailableYears(), []);
 
   useEffect(() => {
     if (!accessLoading && !hasAccess) {
@@ -80,67 +69,13 @@ const AccountingPage = () => {
     }
   }, [hasAccess, accessLoading, navigate]);
 
-  useEffect(() => {
-    if (hasAccess) {
-      fetchData();
-    }
-  }, [selectedMonth, selectedYear, hasAccess]);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const monthIndex = parseInt(selectedMonth) - 1;
-      const year = parseInt(selectedYear);
-      const startDate = new Date(year, monthIndex, 1);
-      const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-
-      // Fetch paid invoices (revenue from sales)
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('status', 'paid')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-
-      if (invoicesError) throw invoicesError;
-
-      // Fetch expenses
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select('*, expense_categories(name, color, icon)')
-        .gte('expense_date', startDate.toISOString().split('T')[0])
-        .lte('expense_date', endDate.toISOString().split('T')[0]);
-
-      if (expensesError) throw expensesError;
-
-      // Fetch planned income
-      const { data: incomeData, error: incomeError } = await supabase
-        .from('planned_income')
-        .select('*')
-        .gte('due_date', startDate.toISOString().split('T')[0])
-        .lte('due_date', endDate.toISOString().split('T')[0]);
-
-      if (incomeError) throw incomeError;
-
-      setInvoices(invoicesData || []);
-      setExpenses(expensesData || []);
-      setPlannedIncome(incomeData || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error("Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getPeriodLabel = () => {
     const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
     return `${monthLabel} ${selectedYear}`;
   };
 
   const getFinancialStats = () => {
-    // Revenue from sales
+    // Revenue from paid invoices — filtered by last_status_change (payment date), not created_at
     const salesRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
     
     // Other income (received)
@@ -203,8 +138,12 @@ const AccountingPage = () => {
     return Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
   };
 
-  if (authLoading || accessLoading || loading) {
-    return <div className="container mx-auto px-4 py-8">Chargement...</div>;
+  if (accessLoading || loading) {
+    return (
+      <AppLayout title="Comptabilité">
+        <div className="py-8">Chargement...</div>
+      </AppLayout>
+    );
   }
 
   if (!hasAccess) {
@@ -215,24 +154,8 @@ const AccountingPage = () => {
   const expensesByCategory = getExpensesByCategory();
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4 md:mb-8">
-        <Button variant="ghost" onClick={() => navigate('/crm')} size="sm">
-          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour au CRM</span>
-        </Button>
-      </div>
-
+    <AppLayout title="Comptabilité" subtitle={getPeriodLabel()}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-        <div>
-          <h1 className="text-xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Comptabilité
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1">
-            📅 {getPeriodLabel()}
-          </p>
-        </div>
-        
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Calendar className="h-4 w-4 text-muted-foreground hidden sm:block" />
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -289,6 +212,21 @@ const AccountingPage = () => {
             >
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">PDF</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                exportAccountingToCSV(
+                  { invoices, expenses, plannedIncome, stats },
+                  getPeriodLabel()
+                );
+                toast.success("Export CSV téléchargé");
+              }}
+              className="flex items-center gap-1 text-xs"
+            >
+              <FileDown className="h-4 w-4" />
+              <span className="hidden sm:inline">CSV</span>
             </Button>
           </div>
         </div>
@@ -480,7 +418,7 @@ const AccountingPage = () => {
           <ExpensesSection 
             selectedMonth={selectedMonth} 
             selectedYear={selectedYear}
-            onDataChange={fetchData}
+            onDataChange={refetch}
           />
         </TabsContent>
 
@@ -489,7 +427,7 @@ const AccountingPage = () => {
           <PlannedIncomeSection 
             selectedMonth={selectedMonth} 
             selectedYear={selectedYear}
-            onDataChange={fetchData}
+            onDataChange={refetch}
           />
         </TabsContent>
 
@@ -502,7 +440,7 @@ const AccountingPage = () => {
           />
         </TabsContent>
       </Tabs>
-    </div>
+    </AppLayout>
   );
 };
 

@@ -1,13 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from "sonner";
-import { useAuth } from '../hooks/useAuth';
-import { useAccountingAccess } from '../hooks/useAccountingAccess';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Search, Pencil, Trash2, Calculator, RotateCcw, Upload, FileDown, ClipboardList } from 'lucide-react';
+import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
+import { MONTHS, getAvailableYears } from '@/constants/months';
+import { PAYMENT_FILTER_OPTIONS, PAYMENT_CRM_OPTIONS, invoiceMatchesPaymentFilter } from '@/constants/paymentMethods';
+import { STATUS_LABELS, STATUS_COLORS } from '@/constants/invoiceStatuses';
+import { getFollowUpDays, getFollowUpLevel } from '@/constants/followUpConfig';
+import { useInvoices, useUpdateInvoice, useDeleteInvoice } from '@/hooks/useInvoices';
+import { useSalesRepNames } from '@/hooks/useSalesReps';
+import AppLayout from '@/components/layout/AppLayout';
+import WhatsAppLink from '@/components/WhatsAppLink';
+import InvoiceStatusStepper from '@/components/InvoiceStatusStepper';
+import ClientHistoryPanel from '@/components/ClientHistoryPanel';
+import { buildInvoiceWhatsAppMessage } from '@/utils/whatsappUtils';
 import {
   Select,
   SelectContent,
@@ -36,72 +45,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-const statusLabels = {
-  generated: 'Facture générée',
-  sent: 'Facture envoyée',
-  awaiting_payment: 'En attente de paiement',
-  to_follow_up: 'À relancer',
-  paid: 'Facture payée'
-};
-
-const statusColors = {
-  generated: 'bg-gray-100 text-gray-800',
-  sent: 'bg-blue-100 text-blue-800',
-  awaiting_payment: 'bg-yellow-100 text-yellow-800',
-  to_follow_up: 'bg-orange-100 text-orange-800',
-  paid: 'bg-green-100 text-green-800'
-};
-
-const MONTHS = [
-  { value: '01', label: 'Janvier' },
-  { value: '02', label: 'Février' },
-  { value: '03', label: 'Mars' },
-  { value: '04', label: 'Avril' },
-  { value: '05', label: 'Mai' },
-  { value: '06', label: 'Juin' },
-  { value: '07', label: 'Juillet' },
-  { value: '08', label: 'Août' },
-  { value: '09', label: 'Septembre' },
-  { value: '10', label: 'Octobre' },
-  { value: '11', label: 'Novembre' },
-  { value: '12', label: 'Décembre' },
-];
-
-const PAYMENT_TYPES = [
-  { value: 'All', label: 'Toutes les options' },
-  { value: 'USA', label: 'Paiement aux USA' },
-  { value: 'Niamey', label: 'Paiement à Niamey' },
-  { value: 'NiameyAminou', label: 'Paiement à Niamey (Aminou)' },
-  { value: 'France', label: 'Paiement en France' },
-  { value: 'BOA', label: 'Virement bancaire Niger (BOA)' },
-];
-
-const PAYMENT_OPTIONS = [
-  { id: 'USA', label: 'Paiement aux USA', icon: '🇺🇸' },
-  { id: 'Niamey', label: 'Paiement à Niamey', icon: '🇳🇪' },
-  { id: 'NiameyAminou', label: 'Niamey (Aminou)', icon: '🇳🇪' },
-  { id: 'France', label: 'Virement bancaire France', icon: '🇫🇷' },
-  { id: 'BOA', label: 'Virement bancaire Niger (BOA)', icon: '🏦' },
-  { id: 'Maketou', label: 'Maketou (Mobile Money)', icon: '📱' },
-  { id: 'MyNITA', label: 'MyNITA (Niger)', icon: '💳' },
-  { id: 'Wave', label: 'Wave (Sénégal/CI)', icon: '🌊' },
-  { id: 'Especes', label: 'Espèces', icon: '💵' }
-];
-
 const CRMPage = () => {
   const navigate = useNavigate();
-  const { loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const { isAdmin } = useAdminCheck();
-  const { hasAccess: hasAccountingAccess } = useAccountingAccess();
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const salesRepNames = useSalesRepNames();
+  const { data: invoices = [], isLoading: loading, refetch } = useInvoices();
+  const updateInvoiceMutation = useUpdateInvoice();
+  const deleteInvoiceMutation = useDeleteInvoice();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSalesRep, setFilterSalesRep] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all');
   const [filterPaymentType, setFilterPaymentType] = useState('all');
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
   const [filterService, setFilterService] = useState('all');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -119,57 +81,38 @@ const CRMPage = () => {
   });
 
   useEffect(() => {
-    fetchInvoices();
-    
-    // Check for invoices to mark as "to_follow_up"
     checkAndUpdateStaleInvoices();
   }, []);
 
-  const fetchInvoices = async () => {
-    try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setInvoices(data || []);
-    } catch (error) {
-      toast.error("Erreur lors du chargement des factures");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchInvoices = () => refetch();
 
   const checkAndUpdateStaleInvoices = async () => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const followUpDays = getFollowUpDays().sort((a, b) => b - a);
+      const primaryThreshold = followUpDays[0] || 7;
+      const thresholdDate = new Date();
+      thresholdDate.setDate(thresholdDate.getDate() - primaryThreshold);
 
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
-        .lt('last_status_change', sevenDaysAgo.toISOString())
+        .lt('last_status_change', thresholdDate.toISOString())
         .neq('status', 'to_follow_up')
         .neq('status', 'paid');
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const updates = data.map(invoice => 
-          supabase
-            .from('invoices')
-            .update({ status: 'to_follow_up' })
-            .eq('id', invoice.id)
+        await Promise.all(
+          data.map((invoice) =>
+            supabase.from('invoices').update({ status: 'to_follow_up' }).eq('id', invoice.id)
+          )
         );
-
-        await Promise.all(updates);
-        fetchInvoices();
+        refetch();
       }
-    } catch (error) {
-      // Silently fail - stale invoice check is non-critical
+    } catch {
+      // non-critical
     }
   };
 
@@ -375,11 +318,8 @@ const CRMPage = () => {
     }
   };
 
-  const isStale = (lastStatusChange) => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return new Date(lastStatusChange) < sevenDaysAgo;
-  };
+  const isStale = (lastStatusChange, status) =>
+    getFollowUpLevel(lastStatusChange, status) !== null;
 
   // Extract unique services from invoices
   const uniqueServices = useMemo(() => {
@@ -387,15 +327,75 @@ const CRMPage = () => {
     return services.filter(Boolean).sort();
   }, [invoices]);
 
-  // Generate year range (2020 to current year + 1)
-  const availableYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let year = 2020; year <= currentYear + 1; year++) {
-      years.push(year.toString());
+  const availableYears = useMemo(() => getAvailableYears(), []);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('desc');
     }
-    return years;
-  }, []);
+  };
+
+  const filteredInvoices = useMemo(() => {
+    const filtered = invoices.filter((invoice) => {
+      const matchesSearch =
+        invoice.client_first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        invoice.client_last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesSalesRep = filterSalesRep === 'all' || invoice.sales_representative === filterSalesRep;
+      const matchesStatus = filterStatus === 'all' || invoice.status === filterStatus;
+      const matchesPaymentType = invoiceMatchesPaymentFilter(invoice.payment_type, filterPaymentType);
+
+      const invoiceDate = new Date(invoice.created_at);
+      const matchesMonth =
+        filterMonth === 'all' ||
+        (invoiceDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
+      const matchesYear =
+        filterYear === 'all' || invoiceDate.getFullYear().toString() === filterYear;
+      const matchesService =
+        filterService === 'all' || invoice.service_description === filterService;
+
+      return (
+        matchesSearch &&
+        matchesSalesRep &&
+        matchesStatus &&
+        matchesPaymentType &&
+        matchesMonth &&
+        matchesYear &&
+        matchesService
+      );
+    });
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+      if (sortField === 'amount') {
+        aVal = parseFloat(aVal);
+        bVal = parseFloat(bVal);
+      } else if (sortField === 'created_at' || sortField === 'last_status_change') {
+        aVal = new Date(aVal || 0).getTime();
+        bVal = new Date(bVal || 0).getTime();
+      }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [invoices, searchTerm, filterSalesRep, filterStatus, filterPaymentType, filterMonth, filterYear, filterService, sortField, sortDir]);
+
+  const totalPages = Math.ceil(filteredInvoices.length / PAGE_SIZE);
+  const paginatedInvoices = filteredInvoices.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterSalesRep, filterStatus, filterPaymentType, filterMonth, filterYear, filterService]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -407,75 +407,19 @@ const CRMPage = () => {
     setFilterService('all');
   };
 
-  const hasActiveFilters = searchTerm || filterSalesRep !== 'all' || filterStatus !== 'all' || 
+  const hasActiveFilters = searchTerm || filterSalesRep !== 'all' || filterStatus !== 'all' ||
     filterPaymentType !== 'all' || filterMonth !== 'all' || filterYear !== 'all' || filterService !== 'all';
 
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = 
-      invoice.client_first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.client_last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesSalesRep = filterSalesRep === 'all' || invoice.sales_representative === filterSalesRep;
-    const matchesStatus = filterStatus === 'all' || invoice.status === filterStatus;
-    
-    const matchesPaymentType = filterPaymentType === 'all' || invoice.payment_type === filterPaymentType;
-    
-    const invoiceDate = new Date(invoice.created_at);
-    const matchesMonth = filterMonth === 'all' || 
-      (invoiceDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
-    
-    const matchesYear = filterYear === 'all' || 
-      invoiceDate.getFullYear().toString() === filterYear;
-    
-    const matchesService = filterService === 'all' || 
-      invoice.service_description === filterService;
-
-    return matchesSearch && matchesSalesRep && matchesStatus && 
-           matchesPaymentType && matchesMonth && matchesYear && matchesService;
-  });
-
-  if (authLoading || loading) {
-    return <div className="container mx-auto px-4 py-8">Chargement...</div>;
+  if (loading) {
+    return (
+      <AppLayout title="Gestion CRM">
+        <div className="py-8">Chargement...</div>
+      </AppLayout>
+    );
   }
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3">
-        <Button variant="ghost" onClick={() => navigate('/')} size="sm">
-          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour</span>
-        </Button>
-        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-          <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1 sm:flex-none text-xs md:text-sm">
-            Dashboard
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/reports')} className="flex-1 sm:flex-none text-xs md:text-sm">
-            Rapports
-          </Button>
-          {hasAccountingAccess && (
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/accounting')} 
-              className="flex-1 sm:flex-none text-xs md:text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 hover:from-amber-600 hover:to-orange-600"
-            >
-              <Calculator className="mr-1 h-4 w-4" />
-              Comptabilité
-            </Button>
-          )}
-          {isAdmin && (
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/activity-logs')} 
-              className="flex-1 sm:flex-none text-xs md:text-sm"
-            >
-              <ClipboardList className="mr-1 h-4 w-4" />
-              Logs
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-8">Gestion CRM</h1>
+    <AppLayout title="Gestion CRM" subtitle={`${filteredInvoices.length} facture(s)`}>
 
       {/* Filters */}
       <div className="space-y-3 mb-4 md:mb-6">
@@ -499,10 +443,9 @@ const CRMPage = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les commerciaux</SelectItem>
-              <SelectItem value="Josphin">Josphin</SelectItem>
-              <SelectItem value="Nadia">Nadia</SelectItem>
-              <SelectItem value="Donald">Donald</SelectItem>
-              <SelectItem value="Richard">Richard</SelectItem>
+              {salesRepNames.map((name) => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -526,7 +469,7 @@ const CRMPage = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Toutes les méthodes</SelectItem>
-              {PAYMENT_TYPES.map((pt) => (
+              {PAYMENT_FILTER_OPTIONS.filter((pt) => pt.value !== 'All').map((pt) => (
                 <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
               ))}
             </SelectContent>
@@ -611,11 +554,11 @@ const CRMPage = () => {
                 <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Commercial
                 </th>
-                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Montant
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => toggleSort('amount')}>
+                  Montant <ArrowUpDown className="inline h-3 w-3" />
                 </th>
-                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">
-                  Date
+                <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell cursor-pointer" onClick={() => toggleSort('created_at')}>
+                  Date <ArrowUpDown className="inline h-3 w-3" />
                 </th>
                 <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Statut
@@ -626,12 +569,12 @@ const CRMPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredInvoices.map((invoice) => (
-                <tr 
+              {paginatedInvoices.map((invoice) => (
+                <tr
                   key={invoice.id}
                   className={`${
-                    isStale(invoice.last_status_change) && invoice.status !== 'paid' 
-                      ? 'bg-orange-50' 
+                    isStale(invoice.last_status_change, invoice.status)
+                      ? 'bg-orange-50'
                       : ''
                   }`}
                 >
@@ -661,11 +604,11 @@ const CRMPage = () => {
                       value={invoice.status}
                       onValueChange={(value) => handleStatusChange(invoice.id, value, invoice.payment_type)}
                     >
-                      <SelectTrigger className={`w-32 md:w-48 text-xs md:text-sm ${statusColors[invoice.status]}`}>
+                      <SelectTrigger className={`w-32 md:w-48 text-xs md:text-sm ${STATUS_COLORS[invoice.status]}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(statusLabels).map(([value, label]) => (
+                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
                           <SelectItem key={value} value={value}>
                             {label}
                           </SelectItem>
@@ -675,6 +618,10 @@ const CRMPage = () => {
                   </td>
                   <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm">
                     <div className="flex gap-1 md:gap-2">
+                      <WhatsAppLink
+                        phone={invoice.client_whatsapp}
+                        message={buildInvoiceWhatsAppMessage(invoice)}
+                      />
                       <Button
                         variant="ghost"
                         size="sm"
@@ -704,6 +651,32 @@ const CRMPage = () => {
             Aucune facture trouvée
           </div>
         )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} / {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Edit Dialog */}
@@ -715,6 +688,11 @@ const CRMPage = () => {
               Modifiez les informations du client et de la facture
             </DialogDescription>
           </DialogHeader>
+          {selectedInvoice && (
+            <div className="py-2">
+              <InvoiceStatusStepper currentStatus={selectedInvoice.status} />
+            </div>
+          )}
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="first_name">Prénom</Label>
@@ -760,6 +738,13 @@ const CRMPage = () => {
               />
             </div>
           </div>
+          {selectedInvoice && (
+            <ClientHistoryPanel
+              invoices={invoices}
+              clientEmail={selectedInvoice.client_email}
+              clientWhatsapp={selectedInvoice.client_whatsapp}
+            />
+          )}
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Annuler
@@ -813,7 +798,7 @@ const CRMPage = () => {
             onValueChange={setSelectedPaymentMethod}
             className="grid gap-2 py-2"
           >
-            {PAYMENT_OPTIONS.map((option) => (
+            {PAYMENT_CRM_OPTIONS.map((option) => (
               <div 
                 key={option.id} 
                 className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -883,7 +868,7 @@ const CRMPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </AppLayout>
   );
 };
 

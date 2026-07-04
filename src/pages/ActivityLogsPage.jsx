@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
-import { useAuth } from '../hooks/useAuth';
+import AppLayout from '@/components/layout/AppLayout';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Activity, Filter } from 'lucide-react';
@@ -90,14 +90,8 @@ const ActivityLogsPage = () => {
   if (!isAdmin) return null;
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8">
-      <div className="flex justify-between items-center mb-4 md:mb-8">
-        <Button variant="ghost" onClick={() => navigate('/crm')} size="sm">
-          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> Retour au CRM
-        </Button>
-      </div>
-
-      <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-6 flex items-center gap-2">
+    <AppLayout title="Logs d'activité" subtitle="Journal d'audit des actions">
+      <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-6 flex items-center gap-2 sr-only">
         <Activity className="h-6 w-6 text-primary" />
         Logs d'activité
       </h1>
@@ -181,7 +175,7 @@ const ActivityLogsPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
