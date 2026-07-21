@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
-import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
   Select,
@@ -14,89 +13,54 @@ import {
 } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Leaderboard from '../components/Leaderboard';
-
-const MONTHS = [
-  { value: '01', label: 'Janvier' },
-  { value: '02', label: 'Février' },
-  { value: '03', label: 'Mars' },
-  { value: '04', label: 'Avril' },
-  { value: '05', label: 'Mai' },
-  { value: '06', label: 'Juin' },
-  { value: '07', label: 'Juillet' },
-  { value: '08', label: 'Août' },
-  { value: '09', label: 'Septembre' },
-  { value: '10', label: 'Octobre' },
-  { value: '11', label: 'Novembre' },
-  { value: '12', label: 'Décembre' },
-];
+import { MONTHS, getAvailableYears } from '@/constants/months';
+import { useInvoiceStats } from '@/hooks/useInvoiceStats';
+import { persistMonthlyPoints } from '@/utils/pointsPersistence';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
+import AppLayout from '@/components/layout/AppLayout';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { loading: authLoading } = useAuth();
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Initialize with current month and year by default
+  const { isAdmin } = useAdminCheck();
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState((currentDate.getMonth() + 1).toString().padStart(2, '0'));
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear().toString());
 
-  // Generate available years (from 2020 to current year + 1)
-  const availableYears = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let year = currentYear + 1; year >= 2020; year--) {
-      years.push(year.toString());
-    }
-    return years;
-  }, []);
+  const availableYears = useMemo(() => getAvailableYears(), []);
 
-  // Calculer les dates de début et fin de la période sélectionnée
   const getPeriodDates = () => {
     const monthIndex = parseInt(selectedMonth) - 1;
     const year = parseInt(selectedYear);
-    const startDate = new Date(year, monthIndex, 1);
-    const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-    return { startDate, endDate };
+    return {
+      startDate: new Date(year, monthIndex, 1),
+      endDate: new Date(year, monthIndex + 1, 0, 23, 59, 59, 999),
+    };
   };
+
+  const { startDate, endDate } = getPeriodDates();
+  const { data: invoices = [], isLoading: loading } = useInvoiceStats(
+    startDate.toISOString(),
+    endDate.toISOString()
+  );
 
   useEffect(() => {
-    fetchInvoices();
-  }, [selectedMonth, selectedYear]);
-
-  const fetchInvoices = async () => {
-    try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      
-      // Utiliser la fonction sécurisée get_invoice_stats au lieu de la table invoices
-      // Cette fonction n'expose que les champs nécessaires pour le dashboard (pas de données clients)
-      // Elle retourne aussi last_status_change pour filtrer les paiements par date de paiement
-      let startDate = null;
-      let endDate = null;
-      
-      if (selectedMonth && selectedYear) {
-        const monthIndex = parseInt(selectedMonth) - 1;
-        const year = parseInt(selectedYear);
-        startDate = new Date(year, monthIndex, 1).toISOString();
-        endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999).toISOString();
+    const persistPoints = async () => {
+      const now = new Date();
+      const isPastMonth =
+        parseInt(selectedYear) < now.getFullYear() ||
+        (parseInt(selectedYear) === now.getFullYear() &&
+          parseInt(selectedMonth) < now.getMonth() + 1);
+      if (isPastMonth && isAdmin && invoices.length > 0) {
+        try {
+          await persistMonthlyPoints(selectedMonth, selectedYear, invoices);
+        } catch {
+          // non-critical
+        }
       }
+    };
+    persistPoints();
+  }, [selectedMonth, selectedYear, invoices, isAdmin]);
 
-      const { data, error } = await supabase.rpc('get_invoice_stats', {
-        p_start_date: startDate,
-        p_end_date: endDate
-      });
-
-      if (error) throw error;
-      setInvoices(data || []);
-    } catch (error) {
-      console.error('Error fetching invoice stats:', error);
-      toast.error("Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get current period label
   const getPeriodLabel = () => {
     const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
     return `${monthLabel} ${selectedYear}`;
@@ -105,30 +69,17 @@ const DashboardPage = () => {
   const getServiceStats = () => {
     const { startDate, endDate } = getPeriodDates();
     const serviceMap = {};
-    
-    // Pour les stats de service, on utilise created_at pour le total
-    // et last_status_change pour les paiements
     invoices.forEach(inv => {
       const service = inv.service_description || 'Non spécifié';
       const createdAt = new Date(inv.created_at);
       const isCreatedInPeriod = createdAt >= startDate && createdAt <= endDate;
-      
       if (!serviceMap[service]) {
-        serviceMap[service] = {
-          name: service,
-          totalAmount: 0,
-          paidAmount: 0,
-          count: 0
-        };
+        serviceMap[service] = { name: service, totalAmount: 0, paidAmount: 0, count: 0 };
       }
-      
-      // Comptabiliser le total seulement si créé dans la période
       if (isCreatedInPeriod) {
         serviceMap[service].totalAmount += parseFloat(inv.amount);
         serviceMap[service].count += 1;
       }
-      
-      // Comptabiliser le paiement seulement si payé dans la période
       if (inv.status === 'paid' && inv.last_status_change) {
         const paymentDate = new Date(inv.last_status_change);
         if (paymentDate >= startDate && paymentDate <= endDate) {
@@ -136,81 +87,65 @@ const DashboardPage = () => {
         }
       }
     });
-
-    return Object.values(serviceMap)
-      .filter(s => s.count > 0 || s.paidAmount > 0)
-      .sort((a, b) => b.totalAmount - a.totalAmount)
-      .slice(0, 10);
+    return Object.values(serviceMap).sort((a, b) => b.paidAmount - a.paidAmount);
   };
 
   const getSalesRepStats = () => {
     const { startDate, endDate } = getPeriodDates();
-    const stats = {};
-    const salesReps = ['Josphin', 'Nadia', 'Donald', 'Richard'];
-
-    salesReps.forEach(rep => {
-      // Factures créées dans la période (basé sur created_at)
-      const repInvoicesCreated = invoices.filter(inv => {
-        if (inv.sales_representative !== rep) return false;
-        const createdAt = new Date(inv.created_at);
-        return createdAt >= startDate && createdAt <= endDate;
-      });
-      
-      // Factures payées dans la période (basé sur last_status_change)
-      const repInvoicesPaid = invoices.filter(inv => {
-        if (inv.sales_representative !== rep || inv.status !== 'paid') return false;
-        if (!inv.last_status_change) return false;
+    const repMap = {};
+    invoices.forEach(inv => {
+      const rep = inv.sales_representative || 'Non assigné';
+      if (!repMap[rep]) {
+        repMap[rep] = { name: rep, total: 0, paid: 0, count: 0 };
+      }
+      const createdAt = new Date(inv.created_at);
+      if (createdAt >= startDate && createdAt <= endDate) {
+        repMap[rep].total += parseFloat(inv.amount);
+        repMap[rep].count += 1;
+      }
+      if (inv.status === 'paid' && inv.last_status_change) {
         const paymentDate = new Date(inv.last_status_change);
-        return paymentDate >= startDate && paymentDate <= endDate;
-      });
-      
-      const totalAmount = repInvoicesCreated.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-      const paidAmount = repInvoicesPaid.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-
-      stats[rep] = {
-        totalInvoices: repInvoicesCreated.length,
-        totalAmount,
-        paidInvoices: repInvoicesPaid.length,
-        paidAmount,
-        pendingInvoices: repInvoicesCreated.length - repInvoicesPaid.length
-      };
+        if (paymentDate >= startDate && paymentDate <= endDate) {
+          repMap[rep].paid += parseFloat(inv.amount);
+        }
+      }
     });
-
-    return stats;
+    return Object.values(repMap).sort((a, b) => b.paid - a.paid);
   };
 
   const getOverallStats = () => {
     const { startDate, endDate } = getPeriodDates();
-    
-    // Factures créées dans la période (pour le total)
     const invoicesCreated = invoices.filter(inv => {
       const createdAt = new Date(inv.created_at);
       return createdAt >= startDate && createdAt <= endDate;
     });
-    
-    // Factures payées dans la période (basé sur last_status_change)
     const invoicesPaidInPeriod = invoices.filter(inv => {
       if (inv.status !== 'paid' || !inv.last_status_change) return false;
       const paymentDate = new Date(inv.last_status_change);
       return paymentDate >= startDate && paymentDate <= endDate;
     });
-    
-    const totalInvoices = invoicesCreated.length;
     const totalAmount = invoicesCreated.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
     const paidAmount = invoicesPaidInPeriod.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-
     return {
-      totalInvoices,
+      totalInvoices: invoicesCreated.length,
       totalAmount,
       paidInvoices: invoicesPaidInPeriod.length,
       paidAmount,
-      pendingInvoices: totalInvoices - invoicesPaidInPeriod.length,
-      pendingAmount: totalAmount - paidAmount
+      pendingInvoices: invoicesCreated.length - invoicesPaidInPeriod.length,
+      pendingAmount: totalAmount - paidAmount,
     };
   };
 
-  if (authLoading || loading) {
-    return <div className="container mx-auto px-4 py-8">Chargement...</div>;
+  const navigateToCRM = (status) => {
+    navigate(status ? `/crm?status=${status}` : '/crm');
+  };
+
+  if (loading) {
+    return (
+      <AppLayout title="Dashboard">
+        <div className="py-8">Chargement...</div>
+      </AppLayout>
+    );
   }
 
   const salesRepStats = getSalesRepStats();
@@ -218,178 +153,100 @@ const DashboardPage = () => {
   const serviceStats = getServiceStats();
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8">
-      <div className="flex justify-between items-center mb-4 md:mb-8">
-        <Button variant="ghost" onClick={() => navigate('/crm')} size="sm">
-          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour au CRM</span>
-        </Button>
+    <AppLayout title="Dashboard - Performances" subtitle={getPeriodLabel()}>
+      <div className="flex items-center gap-2 mb-6">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Mois" />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS.map(month => (
+              <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedYear} onValueChange={setSelectedYear}>
+          <SelectTrigger className="w-24">
+            <SelectValue placeholder="Année" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableYears.map(year => (
+              <SelectItem key={year} value={year}>{year}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3">
-        <div>
-          <h1 className="text-xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Dashboard - Performances
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1">
-            📅 {getPeriodLabel()}
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Calendar className="h-4 w-4 text-muted-foreground hidden sm:block" />
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-36 glass border-primary/20 shadow-md">
-              <SelectValue placeholder="Mois" />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map(month => (
-                <SelectItem key={month.value} value={month.value}>
-                  {month.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-24 glass border-primary/20 shadow-md">
-              <SelectValue placeholder="Année" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableYears.map(year => (
-                <SelectItem key={year} value={year}>{year}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Leaderboard - passe les données avec payment_type pour le calcul des frais Maketou */}
       <Leaderboard invoices={invoices} periodLabel={getPeriodLabel()} periodDates={getPeriodDates()} />
 
-      {/* Overall Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
-        <div className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth animate-slide-up">
-          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1 md:mb-2">Factures totales</h3>
-          <p className="text-xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">{overallStats.totalInvoices}</p>
-        </div>
-        <div className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1 md:mb-2">Montant total</h3>
-          <p className="text-lg md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent truncate">{formatCurrency(overallStats.totalAmount, 'XOF')}</p>
-        </div>
-        <div className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1 md:mb-2">Payées</h3>
+        <button
+          type="button"
+          onClick={() => navigateToCRM()}
+          className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth text-left"
+        >
+          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1">Factures totales</h3>
+          <p className="text-xl md:text-3xl font-bold">{overallStats.totalInvoices}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateToCRM()}
+          className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth text-left"
+        >
+          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1">Montant total</h3>
+          <p className="text-lg md:text-3xl font-bold truncate">{formatCurrency(overallStats.totalAmount, 'XOF')}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateToCRM('paid')}
+          className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth text-left"
+        >
+          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1">Payées</h3>
           <p className="text-xl md:text-3xl font-bold text-success">{overallStats.paidInvoices}</p>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1 truncate">{formatCurrency(overallStats.paidAmount, 'XOF')}</p>
-        </div>
-        <div className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1 md:mb-2">En attente</h3>
+          <p className="text-xs text-muted-foreground truncate">{formatCurrency(overallStats.paidAmount, 'XOF')}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigateToCRM('awaiting_payment')}
+          className="glass p-3 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth text-left"
+        >
+          <h3 className="text-xs md:text-sm font-medium text-muted-foreground mb-1">En attente</h3>
           <p className="text-xl md:text-3xl font-bold text-warning">{overallStats.pendingInvoices}</p>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1 truncate">{formatCurrency(overallStats.pendingAmount, 'XOF')}</p>
-        </div>
+          <p className="text-xs text-muted-foreground truncate">{formatCurrency(overallStats.pendingAmount, 'XOF')}</p>
+        </button>
       </div>
 
-      {/* Service Performance Chart */}
-      <div className="glass p-4 md:p-6 rounded-xl shadow-md mb-6 md:mb-8 animate-slide-up" style={{ animationDelay: '0.4s' }}>
-        <h2 className="text-lg md:text-2xl font-semibold mb-4 flex items-center gap-2">
-          <span className="bg-gradient-primary bg-clip-text text-transparent">Services les plus rentables</span>
-          <span className="text-sm text-muted-foreground font-normal">({getPeriodLabel()})</span>
-        </h2>
+      <div className="glass p-4 md:p-6 rounded-xl shadow-md mb-6">
+        <h2 className="text-lg md:text-2xl font-semibold mb-4">Services les plus rentables</h2>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={serviceStats} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis 
-              dataKey="name" 
-              angle={-45} 
-              textAnchor="end" 
-              height={120}
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            />
-            <YAxis 
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
-            />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--background))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-                boxShadow: 'var(--shadow-md)'
-              }}
-              formatter={(value) => formatCurrency(value, 'XOF')}
-              labelStyle={{ color: 'hsl(var(--foreground))' }}
-            />
-            <Legend 
-              wrapperStyle={{ paddingTop: '20px' }}
-              formatter={(value) => value === 'totalAmount' ? 'Montant Total' : 'Montant Payé'}
-            />
-            <Bar 
-              dataKey="totalAmount" 
-              fill="hsl(var(--primary))" 
-              radius={[8, 8, 0, 0]}
-              name="totalAmount"
-            />
-            <Bar 
-              dataKey="paidAmount" 
-              fill="hsl(var(--success))" 
-              radius={[8, 8, 0, 0]}
-              name="paidAmount"
-            />
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" angle={-45} textAnchor="end" height={120} tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+            <Tooltip formatter={(value) => formatCurrency(value, 'XOF')} />
+            <Legend />
+            <Bar dataKey="totalAmount" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} name="totalAmount" />
+            <Bar dataKey="paidAmount" fill="hsl(var(--success))" radius={[8, 8, 0, 0]} name="paidAmount" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Sales Rep Stats */}
-      <h2 className="text-lg md:text-2xl font-semibold mb-3 md:mb-4 bg-gradient-primary bg-clip-text text-transparent">
-        Performances par Commercial - {getPeriodLabel()}
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
-        {Object.entries(salesRepStats).map(([rep, stats], idx) => (
-          <div key={rep} className="glass p-4 md:p-6 rounded-xl shadow-md hover:shadow-glow transition-smooth animate-slide-up" style={{ animationDelay: `${0.5 + idx * 0.1}s` }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold text-xl">
-                {rep.charAt(0)}
-              </div>
-              <div>
-                <h3 className="text-xl md:text-2xl font-bold text-foreground">{rep}</h3>
-                <p className="text-xs text-muted-foreground">Commercial</p>
-              </div>
-            </div>
-            <div className="space-y-2 md:space-y-3">
-              <div className="flex justify-between items-center text-sm md:text-base">
-                <span className="text-muted-foreground">Factures générées</span>
-                <span className="font-semibold text-foreground">{stats.totalInvoices}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm md:text-base">
-                <span className="text-muted-foreground">Montant total</span>
-                <span className="font-semibold text-foreground truncate ml-2">{formatCurrency(stats.totalAmount, 'XOF')}</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-border pt-3">
-                <span className="text-success">Factures payées</span>
-                <span className="font-semibold text-success">{stats.paidInvoices}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-success">Montant encaissé</span>
-                <span className="font-semibold text-success">{formatCurrency(stats.paidAmount, 'XOF')}</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-border pt-3">
-                <span className="text-warning">Factures en attente</span>
-                <span className="font-semibold text-warning">{stats.pendingInvoices}</span>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Taux de conversion</span>
-                  <span className="font-semibold text-accent">
-                    {stats.totalInvoices > 0 
-                      ? `${((stats.paidInvoices / stats.totalInvoices) * 100).toFixed(1)}%`
-                      : '0%'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="glass p-4 md:p-6 rounded-xl shadow-md">
+        <h2 className="text-lg md:text-2xl font-semibold mb-4">Performance par commercial</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={salesRepStats}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+            <Tooltip formatter={(value) => formatCurrency(value, 'XOF')} />
+            <Legend />
+            <Bar dataKey="total" fill="hsl(var(--primary))" name="Total" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="paid" fill="hsl(var(--success))" name="Payé" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

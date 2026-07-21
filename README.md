@@ -1,70 +1,89 @@
-# Welcome to your GPT Engineer project
+# KPB Education — CRM & Générateur de Factures
 
-## Project info
+Application interne de **KPB Education** pour la gestion commerciale : création de factures brandées, suivi CRM, dashboard de performance, comptabilité et rapports.
 
-**URL**: https://run.gptengineer.app/projects/1340b42f-5412-43e0-b239-b5fdabd2feb7/improve
+## Modules
 
-## How can I edit this code?
+| Module | Route | Description |
+|--------|-------|-------------|
+| Générateur | `/` | Création de factures avec 3 templates PDF |
+| CRM | `/crm` | Suivi des statuts, relances, reçus de paiement |
+| Dashboard | `/dashboard` | KPIs mensuels, classement commercial, commissions |
+| Rapports | `/reports` | Analyses et export PDF |
+| Comptabilité | `/accounting` | Dépenses, budgets, revenus (admin/comptable) |
+| Paramètres | `/settings` | Relances configurables, gestion commerciaux (admin) |
+| Logs | `/activity-logs` | Journal d'audit (admin) |
 
-There are several ways of editing your application.
+## Stack technique
 
-**Use GPT Engineer**
+- **Frontend** : React 18, Vite, Tailwind CSS, shadcn/ui
+- **Backend** : Supabase (PostgreSQL, Auth, Storage, RLS)
+- **Data** : TanStack React Query
+- **PDF** : html2canvas + jsPDF
 
-Simply visit the GPT Engineer project at [GPT Engineer](https://gptengineer.app/projects/1340b42f-5412-43e0-b239-b5fdabd2feb7/improve) and start prompting.
+## Installation locale
 
-Changes made via gptengineer.app will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in the GPT Engineer UI.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+git clone <repo-url>
+cd <project>
+npm install
+cp .env.example .env   # si disponible
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Variables d'environnement requises (`.env`) :
+```
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=eyJ...
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Rôles utilisateurs
 
-**Use GitHub Codespaces**
+| Rôle | Permissions |
+|------|-------------|
+| `commercial` | Créer/voir ses factures, CRM, dashboard |
+| `comptable` | + Comptabilité (dépenses, exports) |
+| `admin` | Accès complet, logs, paramètres, gestion rôles |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Les nouveaux comptes reçoivent automatiquement le rôle `commercial` (trigger Supabase).
 
-## What technologies are used for this project?
+## Parcours utilisateur
 
-This project is built with .
+1. **Connexion** sur `/auth`
+2. **Créer une facture** : remplir le formulaire, choisir un template
+3. **Télécharger le PDF** sur `/template`, marquer comme envoyée
+4. **Suivre dans le CRM** : avancer le statut jusqu'à « payée » + upload reçu
+5. **Consulter le dashboard** pour les performances mensuelles
 
-- Vite
-- React
-- shadcn-ui
-- Tailwind CSS
+## Statuts de facture
 
-## How can I deploy this project?
+```
+generated → sent → awaiting_payment → to_follow_up → paid
+```
 
-All GPT Engineer projects can be deployed directly via the GPT Engineer app.
+Les factures non mises à jour après le seuil configuré (défaut : 7 jours) passent automatiquement en « À relancer ».
 
-Simply visit your project at [GPT Engineer](https://gptengineer.app/projects/1340b42f-5412-43e0-b239-b5fdabd2feb7/improve) and click on Share -> Publish.
+## Règles de commission
 
-## I want to use a custom domain - is that possible?
+- **Base** : 10 % des ventes nettes
+- **Bonus palier** : +10 000 XOF si ≥ 850 000 XOF de ventes nettes
+- **Bonus 1er vendeur** : +15 000 XOF
+- **Frais Maketou** : -5 % déduits du montant brut
+- **Points mensuels** : 1er = 10 pts, 2e = 5 pts, 3e = 3 pts
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.gptengineer.app/tips-tricks/custom-domain/)
+## Commandes
+
+```bash
+npm run dev      # Serveur de développement
+npm run build    # Build production
+npm run lint     # ESLint
+npm run test     # Tests unitaires (Vitest)
+```
+
+## Déploiement
+
+L'application peut être déployée via GPT Engineer/Lovable ou sur Netlify/Vercel avec les variables d'environnement Supabase configurées.
+
+## Contact
+
+KPB Education — 8 Rue André Vasseur, 31200 Toulouse — SIRET 851 365 908 00025

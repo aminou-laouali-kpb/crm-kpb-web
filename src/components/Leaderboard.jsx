@@ -1,36 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Trophy, Medal, Award, TrendingUp, Coins, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
-import { 
-  calculateLeaderboardData, 
+import {
+  calculateLeaderboardData,
   getQuarterInfo,
   COMMISSION_CONFIG
 } from '../utils/commissionCalculations';
-import { supabase } from '@/integrations/supabase/client';
+import { useSalesRepPoints } from '@/hooks/useInvoiceStats';
 
 const Leaderboard = ({ invoices, periodLabel, periodDates }) => {
-  const [pointsHistory, setPointsHistory] = useState([]);
-  const [expandedRep, setExpandedRep] = useState(null);
-
-  // Charger l'historique des points pour le calcul trimestriel
-  useEffect(() => {
-    const fetchPointsHistory = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('sales_rep_points')
-          .select('*')
-          .order('year', { ascending: false })
-          .order('month', { ascending: false });
-        
-        if (error) throw error;
-        setPointsHistory(data || []);
-      } catch (error) {
-        console.error('Error fetching points history:', error);
-      }
-    };
-
-    fetchPointsHistory();
-  }, []);
+  const [expandedRep, setExpandedRep] = React.useState(null);
+  const { data: pointsHistory = [] } = useSalesRepPoints();
 
   // Calculer les données du leaderboard avec commissions et points
   const leaderboardData = calculateLeaderboardData(invoices, periodDates, pointsHistory);

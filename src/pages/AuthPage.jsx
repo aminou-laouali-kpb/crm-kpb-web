@@ -114,9 +114,11 @@ const AuthPage = () => {
         </CardHeader>
         <CardContent className="pb-8">
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full mb-6 ${import.meta.env.DEV ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <TabsTrigger value="login">Connexion</TabsTrigger>
-              <TabsTrigger value="signup">Inscription</TabsTrigger>
+              {import.meta.env.DEV && (
+                <TabsTrigger value="signup">Inscription</TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="login">
@@ -163,6 +165,7 @@ const AuthPage = () => {
               </form>
             </TabsContent>
 
+            {import.meta.env.DEV && (
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-5">
                 <div className="space-y-2">
@@ -220,6 +223,7 @@ const AuthPage = () => {
                 </Button>
               </form>
             </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>

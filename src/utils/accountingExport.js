@@ -296,3 +296,46 @@ export const exportAccountingToPDF = (data, period) => {
   const fileName = `rapport_comptable_${period.replace(/\s/g, '_')}.pdf`;
   doc.save(fileName);
 };
+
+/** Export accounting data as CSV for external accountants */
+export const exportAccountingToCSV = (data, period) => {
+  const { invoices, expenses, stats } = data;
+  const rows = [
+    ['Rapport Comptable KPB Education', period],
+    [],
+    ['Métrique', 'Montant (XOF)'],
+    ['Revenus totaux', stats.totalRevenue],
+    ['Dépenses totales', stats.totalExpenses],
+    ['Solde net', stats.netBalance],
+    [],
+    ['Date paiement', 'N° Facture', 'Client', 'Commercial', 'Montant', 'Devise'],
+    ...invoices.map((inv) => [
+      inv.last_status_change ? new Date(inv.last_status_change).toLocaleDateString('fr-FR') : '',
+      inv.invoice_number,
+      `${inv.client_first_name} ${inv.client_last_name}`,
+      inv.sales_representative,
+      inv.amount,
+      inv.currency || 'XOF',
+    ]),
+    [],
+    ['Date', 'Description', 'Catégorie', 'Montant'],
+    ...expenses.map((exp) => [
+      exp.expense_date,
+      exp.description,
+      exp.expense_categories?.name || '',
+      exp.amount,
+    ]),
+  ];
+
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `comptabilite_kpb_${period.replace(/\s/g, '_')}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};

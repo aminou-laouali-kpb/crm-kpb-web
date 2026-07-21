@@ -1,13 +1,19 @@
-import { HomeIcon } from "lucide-react";
+import {
+  FileText,
+  Users,
+  BarChart3,
+  FileBarChart,
+  Calculator,
+  ClipboardList,
+  Settings,
+} from "lucide-react";
 
-/**
- * Central place for defining the navigation items metadata.
- * Pages are lazy-loaded in App.jsx, so we don't import components here.
- */
 export const navItems = [
-  {
-    title: "Home",
-    to: "/",
-    icon: <HomeIcon className="h-4 w-4" />,
-  },
+  { title: "Factures", to: "/", icon: FileText },
+  { title: "CRM", to: "/crm", icon: Users },
+  { title: "Dashboard", to: "/dashboard", icon: BarChart3 },
+  { title: "Rapports", to: "/reports", icon: FileBarChart },
+  { title: "Comptabilité", to: "/accounting", icon: Calculator, role: "accounting" },
+  { title: "Logs", to: "/activity-logs", icon: ClipboardList, role: "admin" },
+  { title: "Paramètres", to: "/settings", icon: Settings, role: "admin" },
 ];

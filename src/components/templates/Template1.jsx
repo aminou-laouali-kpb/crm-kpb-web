@@ -1,6 +1,7 @@
 import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
+import PaymentDetailsBlock from '../PaymentDetailsBlock';
 import kpbLogo from '../../assets/kpb-logo.png';
 import kpbStamp from '../../assets/kpb-stamp.png';
 
@@ -81,93 +82,8 @@ const Template1 = ({ data = {} }) => {
         {/* Payment Information */}
         <div className="mb-4">
           <h3 className="font-bold text-blue-600 mb-2">INFORMATIONS DE PAIEMENT</h3>
-          <div className="border-2 border-blue-200 p-3 rounded bg-blue-50 space-y-2">
-            {(() => {
-              // Normalize payment types for backward compatibility
-              const types = paymentInfo.types || (paymentInfo.type === 'All' ? ['USA', 'Niamey', 'France'] : [paymentInfo.type]);
-              const showSeparator = (index) => index > 0 ? 'pt-2 border-t border-blue-300' : '';
-              let itemIndex = 0;
-              
-              return (
-                <>
-                  {types.includes('USA') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">🇺🇸 Paiement aux USA via Moneygram/Western Union/Ria:</p>
-                      <p className="text-xs"><strong>Prénom:</strong> Idriss</p>
-                      <p className="text-xs"><strong>Nom:</strong> Laouali Abdou</p>
-                      <p className="text-xs"><strong>Adresse:</strong> Bellevue, Seattle, Washington, USA</p>
-                    </div>
-                  )}
-                  {types.includes('Niamey') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">🇳🇪 Paiement à Niamey via Moneygram/Western Union/Ria:</p>
-                      <p className="text-xs"><strong>Prénom:</strong> Judicael Mahoutin</p>
-                      <p className="text-xs"><strong>Nom:</strong> Djidonou</p>
-                      <p className="text-xs"><strong>Adresse:</strong> Niamey - Niger</p>
-                    </div>
-                  )}
-                  {types.includes('NiameyAminou') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">🇳🇪 Paiement à Niamey (Aminou) via Moneygram/Western Union/Ria:</p>
-                      <p className="text-xs"><strong>Prénom:</strong> Aminou</p>
-                      <p className="text-xs"><strong>Nom:</strong> Laouali Abdou</p>
-                      <p className="text-xs"><strong>Téléphone:</strong> +227 78098914</p>
-                      <p className="text-xs"><strong>Adresse:</strong> Niamey - Niger</p>
-                    </div>
-                  )}
-                  {types.includes('France') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">🇫🇷 Paiement en France via Virement bancaire:</p>
-                      <p className="text-xs"><strong>Titulaire:</strong> Idriss Laouali Abdou</p>
-                      <p className="text-xs"><strong>IBAN:</strong> FR76 1695 8000 0185 1038 3000 480</p>
-                      <p className="text-xs"><strong>BIC/SWIFT:</strong> QNTOFRP1XXX</p>
-                      <p className="text-xs"><strong>BIC/SWIFT banque correspondante:</strong> BNPAFRPP</p>
-                      <p className="text-xs"><strong>Adresse du titulaire:</strong> 8 RUE ANDRE VASSEUR, 31200 TOULOUSE, France</p>
-                    </div>
-                  )}
-                  {types.includes('BOA') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">🏦 Virement bancaire au Niger (Bank Of Africa):</p>
-                      <p className="text-xs"><strong>Banque:</strong> Bank Of Africa - Niger</p>
-                      <p className="text-xs"><strong>Titulaire:</strong> Laouali Abdou Aminou</p>
-                      <p className="text-xs"><strong>IBAN:</strong> NE58 NE03 8010 0100 1614 9100 0788</p>
-                      <p className="text-xs"><strong>BIC/SWIFT:</strong> AFRINENIXXX</p>
-                      <p className="text-xs"><strong>RIB:</strong> NE038 01001 001614910007 88</p>
-                      <p className="text-xs"><strong>Domiciliation:</strong> Niamey - Bobiel, Commune I</p>
-                    </div>
-                  )}
-                  {types.includes('Maketou') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">📱 Maketou - Mobile Money:</p>
-                      <p className="text-xs">Wave, Orange Money, Airtel Money, MTN Money</p>
-                      <p className="text-xs mt-1"><strong>Un lien de paiement vous sera envoyé par email/WhatsApp</strong></p>
-                    </div>
-                  )}
-                  {types.includes('MyNITA') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">💳 MyNITA (Niger):</p>
-                      <p className="text-xs"><strong>Prénom:</strong> Aminou</p>
-                      <p className="text-xs"><strong>Nom:</strong> Laouali Abdou</p>
-                      <p className="text-xs"><strong>Téléphone:</strong> +227 76929799</p>
-                    </div>
-                  )}
-                  {types.includes('Wave') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">🌊 Wave (Sénégal/Côte d'Ivoire):</p>
-                      <p className="text-xs"><strong>Prénom:</strong> Aminou</p>
-                      <p className="text-xs"><strong>Nom:</strong> Laouali Abdou</p>
-                      <p className="text-xs"><strong>Téléphone:</strong> +227 76929799</p>
-                    </div>
-                  )}
-                  {types.includes('Especes') && (
-                    <div className={showSeparator(itemIndex++)}>
-                      <p className="font-semibold mb-1 text-xs">💵 Paiement en espèces:</p>
-                      <p className="text-xs">Contactez votre commercial pour organiser le paiement</p>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
+          <div className="border-2 border-blue-200 p-3 rounded bg-blue-50">
+            <PaymentDetailsBlock paymentInfo={paymentInfo} />
           </div>
         </div>
 

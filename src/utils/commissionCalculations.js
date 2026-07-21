@@ -1,3 +1,5 @@
+import { DEFAULT_SALES_REP_NAMES } from '@/constants/salesReps';
+
 /**
  * Configuration des commissions et points pour les commerciaux
  */
@@ -88,8 +90,7 @@ export const getQuarterInfo = (month, year) => {
  * @param {Array} pointsHistory - Historique des points (optionnel, pour les points trimestriels)
  * @returns {Array} Données du leaderboard triées par ventes
  */
-export const calculateLeaderboardData = (invoices, periodDates, pointsHistory = []) => {
-  const salesReps = ['Josphin', 'Nadia', 'Donald', 'Richard'];
+export const calculateLeaderboardData = (invoices, periodDates, pointsHistory = [], salesReps = DEFAULT_SALES_REP_NAMES) => {
   const { startDate, endDate } = periodDates;
   
   // Calculer les données pour chaque commercial

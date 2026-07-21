@@ -23,6 +23,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import AppLayout from '@/components/layout/AppLayout';
 
 const MONTHS = [
   { value: '0', label: 'Janvier' },
@@ -372,12 +373,8 @@ const ReportsPage = () => {
   const maxServiceAmount = topServices.length > 0 ? topServices[0].totalAmount : 1;
 
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4 md:mb-8">
-        <Button variant="ghost" onClick={() => navigate('/crm')} size="sm">
-          <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Retour au CRM</span>
-        </Button>
+    <AppLayout title="Rapports" subtitle={periodLabel}>
+      <div className="flex justify-end mb-4">
         <Button onClick={exportToPDF} disabled={exporting || invoices.length === 0} className="bg-gradient-primary hover:opacity-90">
           <Download className="mr-2 h-4 w-4" />
           {exporting ? 'Export en cours...' : 'Exporter PDF'}
@@ -694,7 +691,7 @@ const ReportsPage = () => {
           })()}
         </DialogContent>
       </Dialog>
-    </div>
+    </AppLayout>
   );
 };
 
