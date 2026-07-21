@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatCurrency';
 import FloatingLabelInput from '../components/FloatingLabelInput';
@@ -12,11 +12,25 @@ import { toast } from "sonner";
 import { validateInvoiceData, sanitizeText } from '../utils/validation';
 import { generateSequentialInvoiceNumber, generateRandomInvoiceNumber } from '../utils/invoiceNumber';
 import { useCreateInvoice } from '@/hooks/useInvoices';
+import { useClients, useClientSignatureStatus } from '@/hooks/useClients';
 import AppLayout from '@/components/layout/AppLayout';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { AlertTriangle } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
+  const { data: clients = [] } = useClients();
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const { data: hasValidSignature, isLoading: checkingSignature } = useClientSignatureStatus(selectedClientId || null);
   const [selectedCurrency, setSelectedCurrency] = useState("XOF");
   const [clientInfo, setClientInfo] = useState({
     firstName: "",
@@ -29,6 +43,14 @@ const Index = () => {
   const [selectedPayments, setSelectedPayments] = useState(["USA"]);
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState(0);
+
+  const signedClients = useMemo(
+    () =>
+      clients.filter((c) =>
+        (c.contract_signatures || []).some((s) => s.signed_at)
+      ),
+    [clients]
+  );
 
   useEffect(() => {
     const savedFormData = sessionStorage.getItem("formData");
@@ -50,6 +72,7 @@ const Index = () => {
       setSalesRep(parsedData.salesRep || "");
       setGrandTotal(parsedData.grandTotal || 0);
       setSelectedCurrency(parsedData.selectedCurrency || "XOF");
+      if (parsedData.clientId) setSelectedClientId(parsedData.clientId);
     } else {
       generateSequentialInvoiceNumber().then((number) => {
         setInvoice((prev) => ({ ...prev, number }));
@@ -68,16 +91,40 @@ const Index = () => {
       salesRep,
       grandTotal,
       selectedCurrency,
+      clientId: selectedClientId,
     };
     sessionStorage.setItem("formData", JSON.stringify(formData));
-  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency]);
+  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency, selectedClientId]);
+
+  const handleSelectClient = (clientId) => {
+    setSelectedClientId(clientId);
+    const client = clients.find((c) => c.id === clientId);
+    if (client) {
+      setClientInfo({
+        firstName: client.first_name || '',
+        lastName: client.last_name || '',
+        email: client.email || '',
+        whatsapp: client.whatsapp || '',
+      });
+    }
+  };
 
   const handleInputChange = (setter) => (e) => {
     const { name, value } = e.target;
     setter((prev) => ({ ...prev, [name]: value }));
   };
 
+  const canGenerate = !!selectedClientId && hasValidSignature === true && !checkingSignature;
+
   const handleTemplateClick = async (templateNumber) => {
+    if (!selectedClientId) {
+      toast.error("Sélectionnez un client ayant signé le contrat");
+      return;
+    }
+    if (!hasValidSignature) {
+      toast.error("Contrat non signé — envoyez le lien depuis Clients / Contrats");
+      return;
+    }
     if (!salesRep) {
       toast.error("Veuillez sélectionner un commercial");
       return;
@@ -104,6 +151,7 @@ const Index = () => {
       const data = await createInvoice.mutateAsync({
         invoice_number: validated.invoiceNumber,
         invoice_date: validated.invoiceDate,
+        client_id: selectedClientId,
         client_first_name: validated.firstName,
         client_last_name: validated.lastName,
         client_email: validated.email,
@@ -127,13 +175,15 @@ const Index = () => {
         salesRep,
         grandTotal,
         selectedCurrency,
+        clientId: selectedClientId,
       };
       sessionStorage.setItem("formData", JSON.stringify(formData));
       navigate("/template", {
         state: { formData, selectedTemplate: templateNumber, invoiceId: data.id },
       });
-    } catch {
-      toast.error("Erreur lors de l'enregistrement de la facture");
+    } catch (error) {
+      const msg = error?.message || "Erreur lors de l'enregistrement de la facture";
+      toast.error(msg);
     }
   };
 
@@ -156,6 +206,7 @@ const Index = () => {
 
   const clearForm = async () => {
     setClientInfo({ firstName: "", lastName: "", email: "", whatsapp: "" });
+    setSelectedClientId('');
     const number = await generateSequentialInvoiceNumber().catch(() => generateRandomInvoiceNumber());
     setInvoice({ date: "", number });
     setService("");
@@ -193,6 +244,41 @@ const Index = () => {
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           <div className="w-full md:w-1/2 glass rounded-2xl p-6 md:p-8 shadow-lg">
             <form>
+              <div className="mb-6">
+                <Label className="text-base font-semibold mb-2 block">Client (contrat signé requis)</Label>
+                <Select value={selectedClientId} onValueChange={handleSelectClient}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un client signé" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {signedClients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.first_name} {c.last_name} — {c.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {signedClients.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Aucun client avec contrat signé.{' '}
+                    <button type="button" className="underline text-primary" onClick={() => navigate('/clients')}>
+                      Aller à Clients / Contrats
+                    </button>
+                  </p>
+                )}
+                {selectedClientId && hasValidSignature === false && !checkingSignature && (
+                  <div className="mt-2 flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Contrat non signé pour la version active.{' '}
+                      <button type="button" className="underline" onClick={() => navigate('/clients')}>
+                        Envoyer le lien
+                      </button>
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <ClientInfoSection
                 clientInfo={clientInfo}
                 handleInputChange={handleInputChange(setClientInfo)}
@@ -250,24 +336,37 @@ const Index = () => {
 
           <div className="w-full md:w-1/2">
             <h2 className="text-xl md:text-2xl font-bold mb-4">Choisir un modèle</h2>
+            {!canGenerate && (
+              <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900">
+                Génération bloquée tant qu&apos;un client avec signature valide n&apos;est pas sélectionné.
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 md:gap-4">
               {templates.map((template, index) => (
                 <div
                   key={index}
-                  className="group cursor-pointer p-5 md:p-6 border-2 border-border rounded-2xl hover:border-primary transition-smooth hover:shadow-lg glass tap-highlight"
-                  onClick={() => handleTemplateClick(index + 1)}
+                  className={`group p-5 md:p-6 border-2 rounded-2xl transition-smooth glass ${
+                    canGenerate
+                      ? 'cursor-pointer border-border hover:border-primary hover:shadow-lg tap-highlight'
+                      : 'opacity-50 cursor-not-allowed border-muted'
+                  }`}
+                  onClick={() => canGenerate && handleTemplateClick(index + 1)}
+                  aria-disabled={!canGenerate}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base md:text-lg font-semibold">{template.name}</h3>
                       <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                        Cliquez pour générer la facture
+                        {canGenerate ? 'Cliquez pour générer la facture' : 'Contrat requis'}
                       </p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+            <Button variant="link" className="mt-4 px-0" onClick={() => navigate('/clients')}>
+              Gérer les clients et contrats →
+            </Button>
           </div>
         </div>
       </div>

@@ -12,6 +12,8 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const AccountingPage = lazy(() => import('./pages/AccountingPage'));
 const ActivityLogsPage = lazy(() => import('./pages/ActivityLogsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ClientsPage = lazy(() => import('./pages/ClientsPage'));
+const ContractSignPage = lazy(() => import('./pages/ContractSignPage'));
 const Index = lazy(() => import('./pages/Index'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 
@@ -32,10 +34,12 @@ const App = () => (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
           <Routes>
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/sign/:token" element={<ContractSignPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Index />} />
               <Route path="/template" element={<TemplatePage />} />
               <Route path="/crm" element={<CRMPage />} />
+              <Route path="/clients" element={<ClientsPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/accounting" element={<AccountingPage />} />

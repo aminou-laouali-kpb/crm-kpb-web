@@ -14,7 +14,8 @@ import {
 } from '@/constants/followUpConfig';
 import { useSalesReps } from '@/hooks/useSalesReps';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useContractConfig } from '@/hooks/useClients';
+import { DEFAULT_CONTRACT_CONFIG } from '@/constants/contractConfig';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -26,11 +27,32 @@ const SettingsPage = () => {
   );
   const [newRepName, setNewRepName] = useState('');
 
+  const { data: contractConfigRemote } = useContractConfig();
+  const [contractForm, setContractForm] = useState(DEFAULT_CONTRACT_CONFIG);
+
+  React.useEffect(() => {
+    if (contractConfigRemote && Object.keys(contractConfigRemote).length) {
+      setContractForm({ ...DEFAULT_CONTRACT_CONFIG, ...contractConfigRemote });
+    }
+  }, [contractConfigRemote]);
+
   React.useEffect(() => {
     if (!adminLoading && !isAdmin) {
       navigate('/crm');
     }
   }, [isAdmin, adminLoading, navigate]);
+
+  const handleSaveContractConfig = async () => {
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ key: 'contract_config', value: contractForm, updated_at: new Date().toISOString() });
+    if (error) {
+      toast.error('Erreur enregistrement config contrat');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['contract-config'] });
+    toast.success('Configuration contrat enregistrée');
+  };
 
   const handleSaveFollowUp = () => {
     const days = followUpInput
@@ -109,6 +131,63 @@ const SettingsPage = () => {
                 Réinitialiser
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Contrat de prestation (variables KPB)</CardTitle>
+            <CardDescription>
+              Informations juridiques injectées dans le contrat (à compléter avant production).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              ['kpb_forme_juridique', 'Forme juridique'],
+              ['kpb_capital', 'Capital'],
+              ['kpb_rccm', 'RCCM'],
+              ['kpb_siege', 'Siège'],
+              ['kpb_representant', 'Représentant'],
+              ['kpb_fonction', 'Fonction'],
+              ['kpb_email', 'Email'],
+              ['ville_juridiction', 'Ville juridiction'],
+              ['lieu_signature_defaut', 'Lieu de signature'],
+            ].map(([key, label]) => (
+              <div key={key}>
+                <Label>{label}</Label>
+                <Input
+                  value={contractForm[key] || ''}
+                  onChange={(e) => setContractForm({ ...contractForm, [key]: e.target.value })}
+                />
+              </div>
+            ))}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['nb_tentatives_reorientation', 'Tentatives réorientation'],
+                ['delai_reorientation_mois', 'Délai réorientation (mois)'],
+                ['delai_mise_en_demeure_jours', 'Mise en demeure (j)'],
+                ['delai_accuse_jours', 'Accusé (j)'],
+                ['delai_decision_jours', 'Décision (j)'],
+                ['delai_versement_jours', 'Versement (j)'],
+                ['delai_amiable_jours', 'Amiable (j)'],
+                ['frais_inscription_defaut', 'Frais inscription défaut'],
+              ].map(([key, label]) => (
+                <div key={key}>
+                  <Label>{label}</Label>
+                  <Input
+                    type="number"
+                    value={contractForm[key] ?? ''}
+                    onChange={(e) =>
+                      setContractForm({
+                        ...contractForm,
+                        [key]: e.target.value === '' ? '' : Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <Button onClick={handleSaveContractConfig}>Enregistrer le contrat</Button>
           </CardContent>
         </Card>
 
