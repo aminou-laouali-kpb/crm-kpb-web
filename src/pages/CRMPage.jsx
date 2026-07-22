@@ -203,6 +203,18 @@ const CRMPage = () => {
     }
   };
 
+  const handleViewReceipt = async (receiptPath) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('payment-receipts')
+        .createSignedUrl(receiptPath, 300);
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast.error("Impossible d'ouvrir le reçu");
+    }
+  };
+
   const handleEditClick = (invoice) => {
     setSelectedInvoice(invoice);
     setEditForm({
