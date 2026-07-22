@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -200,6 +200,18 @@ const CRMPage = () => {
       toast.error("Erreur lors de la mise à jour");
     } finally {
       setUploadingReceipt(false);
+    }
+  };
+
+  const handleViewReceipt = async (receiptPath) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('payment-receipts')
+        .createSignedUrl(receiptPath, 300);
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast.error("Impossible d'ouvrir le reçu");
     }
   };
 
@@ -622,6 +634,17 @@ const CRMPage = () => {
                         phone={invoice.client_whatsapp}
                         message={buildInvoiceWhatsAppMessage(invoice)}
                       />
+                      {invoice.receipt_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewReceipt(invoice.receipt_url)}
+                          className="p-1 md:p-2"
+                          title="Voir le reçu"
+                        >
+                          <Receipt className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
