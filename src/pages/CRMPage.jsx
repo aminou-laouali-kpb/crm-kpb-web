@@ -204,13 +204,31 @@ const CRMPage = () => {
   };
 
   const handleViewReceipt = async (receiptPath) => {
+    if (!receiptPath) {
+      toast.error("Aucun reçu disponible pour cette facture");
+      return;
+    }
+
+    // Open synchronously to avoid popup blockers after the async storage call
+    const previewWindow = window.open('about:blank', '_blank');
+
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase.storage
         .from('payment-receipts')
         .createSignedUrl(receiptPath, 300);
       if (error) throw error;
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      if (!data?.signedUrl) throw new Error('Signed URL missing');
+
+      if (previewWindow) {
+        previewWindow.location.href = data.signedUrl;
+      } else {
+        // Fallback when the browser blocked window.open
+        window.location.assign(data.signedUrl);
+      }
     } catch (err) {
+      if (previewWindow) previewWindow.close();
+      console.error('Receipt open failed:', err);
       toast.error("Impossible d'ouvrir le reçu");
     }
   };
