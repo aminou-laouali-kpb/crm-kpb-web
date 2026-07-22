@@ -622,6 +622,17 @@ const CRMPage = () => {
                         phone={invoice.client_whatsapp}
                         message={buildInvoiceWhatsAppMessage(invoice)}
                       />
+                      {invoice.receipt_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewReceipt(invoice.receipt_url)}
+                          className="p-1 md:p-2"
+                          title="Voir le reçu"
+                        >
+                          <Receipt className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
