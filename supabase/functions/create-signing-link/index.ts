@@ -1,5 +1,6 @@
-// Optional: create signing link via edge (staff JWT).
-// Primary path in the app creates tokens directly via Supabase client.
+// Optional Edge Function wrapper around create_signature_request.
+// Prefer calling the RPC from the authenticated CRM client.
+// Deploy: supabase functions deploy create-signing-link
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -29,35 +30,21 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { client_id, engagement_id, days_valid = 14, origin } = await req.json();
-    const expires = new Date();
-    expires.setDate(expires.getDate() + days_valid);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('contract_signing_tokens')
-      .insert({
-        client_id,
-        engagement_id,
-        expires_at: expires.toISOString(),
-        created_by: user?.id,
-      })
-      .select()
-      .single();
+    const body = await req.json();
+    const { data, error } = await supabase.rpc('create_signature_request', {
+      p_client_id: body.client_id,
+      p_engagement_id: body.engagement_id,
+      p_entity_key: body.entity_key || 'kpb_education_ne',
+      p_entity: body.entity || {},
+    });
 
     if (error) throw error;
 
-    await supabase
-      .from('engagements')
-      .update({ status: 'awaiting_signature' })
-      .eq('id', engagement_id);
-
-    const base = origin || Deno.env.get('PUBLIC_APP_URL') || '';
+    const origin = body.origin || Deno.env.get('APP_ORIGIN') || '';
     return new Response(
       JSON.stringify({
-        token: data.token,
-        url: `${base}/sign/${data.token}`,
-        expires_at: data.expires_at,
+        ...data,
+        url: data?.ok ? `${origin}/contrat/${data.token}` : null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

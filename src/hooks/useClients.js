@@ -96,41 +96,58 @@ export const useCreateEngagement = () => {
 export const useCreateSigningLink = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ clientId, engagementId, daysValid = 14 }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const expires = new Date();
-      expires.setDate(expires.getDate() + daysValid);
-
-      const { data, error } = await supabase
-        .from('contract_signing_tokens')
-        .insert({
-          client_id: clientId,
-          engagement_id: engagementId,
-          expires_at: expires.toISOString(),
-          created_by: user?.id,
-        })
-        .select()
-        .single();
+    mutationFn: async ({
+      clientId,
+      engagementId,
+      entityKey = 'kpb_education_ne',
+      entity = {},
+    }) => {
+      const { data, error } = await supabase.rpc('create_signature_request', {
+        p_client_id: clientId,
+        p_engagement_id: engagementId,
+        p_entity_key: entityKey,
+        p_entity: entity,
+      });
       if (error) throw error;
-
-      await supabase
-        .from('engagements')
-        .update({ status: 'awaiting_signature' })
-        .eq('id', engagementId);
+      if (!data?.ok) {
+        const missing = (data?.missing_fields || []).join(', ');
+        throw new Error(
+          missing
+            ? `Champs client manquants : ${missing}`
+            : (data?.error || 'Impossible de créer le lien')
+        );
+      }
 
       const origin = window.location.origin;
       return {
         token: data.token,
-        url: `${origin}/sign/${data.token}`,
+        request_id: data.request_id,
+        url: `${origin}/contrat/${data.token}`,
         expires_at: data.expires_at,
+        entity_key: data.entity_key,
+        template_version: data.template_version,
       };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['contract-status'] });
     },
     onError: (e) => toast.error(e.message || 'Erreur génération du lien'),
   });
 };
+
+export const useContractStatusList = () =>
+  useQuery({
+    queryKey: ['contract-status'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_contract_status')
+        .select('*')
+        .order('link_created_at', { ascending: false, nullsFirst: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
 export const useContractConfig = () =>
   useQuery({

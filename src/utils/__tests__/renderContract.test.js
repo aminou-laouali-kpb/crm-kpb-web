@@ -78,6 +78,30 @@ describe('buildContractVars', () => {
     expect(vars.programme).toContain('France');
     expect(vars.prix_total_lettres).toContain('euro');
   });
+
+  it('maps entity fields into contract vars', () => {
+    const vars = buildContractVars({
+      client: { first_name: 'Ada', last_name: 'Lovelace', is_minor: false },
+      engagement: { devise: 'USD', prix_total: 1000, frais_inscription: 0, programme: 'visa_general', objectif: 'visa' },
+      config: {},
+      entity: {
+        legal_name: 'KPB Global L.L.C.',
+        form: 'Limited Liability Company',
+        registration_label: 'Registration No.',
+        registration_number: '123',
+        address: 'Seattle',
+        representative: 'Aminou',
+        representative_role: 'Manager',
+        email: 'aminou@karatoupourtous.org',
+        governing_law: 'Washington law',
+        jurisdiction: 'King County',
+      },
+    });
+    expect(vars.entity_legal_name).toBe('KPB Global L.L.C.');
+    expect(vars.kpb_rccm).toBe('123');
+    expect(vars.ville_juridiction).toBe('King County');
+    expect(vars.kpb_email).toBe('aminou@karatoupourtous.org');
+  });
 });
 
 describe('sha256Hex', () => {

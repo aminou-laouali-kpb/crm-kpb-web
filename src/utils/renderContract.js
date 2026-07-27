@@ -91,7 +91,14 @@ export function buildRepresentantLegalPhrase(client) {
   return `, mineur représenté par ${nom}`;
 }
 
-export function buildContractVars({ client, engagement, config, dateSignature, lieuSignature }) {
+export function buildContractVars({
+  client,
+  engagement,
+  config,
+  entity,
+  dateSignature,
+  lieuSignature,
+}) {
   const devise = engagement?.devise || 'XOF';
   const prixTotal = engagement?.prix_total ?? 0;
   const frais = engagement?.frais_inscription ?? config?.frais_inscription_defaut ?? 0;
@@ -101,6 +108,18 @@ export function buildContractVars({ client, engagement, config, dateSignature, l
 
   const dateStr = dateSignature
     || new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const entityLegalName = entity?.legal_name || 'KPB Education';
+  const registrationLabel = entity?.registration_label || 'RCCM';
+  const registrationNumber = entity?.registration_number || config?.kpb_rccm || '';
+  const entityForm = entity?.form || config?.kpb_forme_juridique || '';
+  const entityAddress = entity?.address || config?.kpb_siege || '';
+  const entityRep = entity?.representative || config?.kpb_representant || '';
+  const entityRole = entity?.representative_role || config?.kpb_fonction || '';
+  const entityEmail = entity?.email || config?.kpb_email || '';
+  const jurisdiction = entity?.jurisdiction || config?.ville_juridiction || 'Niamey';
+  const governingLaw = entity?.governing_law
+    || 'Droit en vigueur en République du Niger et Actes uniformes OHADA';
 
   return {
     client_nom: `${client?.first_name || ''} ${client?.last_name || ''}`.trim(),
@@ -115,13 +134,26 @@ export function buildContractVars({ client, engagement, config, dateSignature, l
     client_email: client?.email || '',
     client_representant_legal: buildRepresentantLegalPhrase(client),
 
-    kpb_forme_juridique: config?.kpb_forme_juridique || '',
+    // Entity-driven (preferred) + legacy kpb_* aliases for older templates
+    entity_legal_name: entityLegalName,
+    entity_form: entityForm,
+    entity_registration_label: registrationLabel,
+    entity_registration_number: registrationNumber,
+    entity_state: entity?.state_of_incorporation || '',
+    entity_address: entityAddress,
+    entity_representative: entityRep,
+    entity_representative_role: entityRole,
+    entity_email: entityEmail,
+    entity_governing_law: governingLaw,
+    entity_jurisdiction: jurisdiction,
+
+    kpb_forme_juridique: entityForm,
     kpb_capital: config?.kpb_capital || '',
-    kpb_rccm: config?.kpb_rccm || '',
-    kpb_siege: config?.kpb_siege || '',
-    kpb_representant: config?.kpb_representant || '',
-    kpb_fonction: config?.kpb_fonction || '',
-    kpb_email: config?.kpb_email || '',
+    kpb_rccm: registrationNumber,
+    kpb_siege: entityAddress,
+    kpb_representant: entityRep,
+    kpb_fonction: entityRole,
+    kpb_email: entityEmail,
 
     programme: getProgrammeLabel(engagement?.programme),
     objectif: getObjectifLabel(engagement?.objectif),
@@ -142,9 +174,9 @@ export function buildContractVars({ client, engagement, config, dateSignature, l
     delai_decision_jours: config?.delai_decision_jours ?? 15,
     delai_versement_jours: config?.delai_versement_jours ?? 30,
     delai_amiable_jours: config?.delai_amiable_jours ?? 30,
-    ville_juridiction: config?.ville_juridiction || 'Niamey',
+    ville_juridiction: jurisdiction,
 
-    lieu_signature: lieuSignature || config?.lieu_signature_defaut || 'Niamey',
+    lieu_signature: lieuSignature || config?.lieu_signature_defaut || jurisdiction || 'Niamey',
     date_signature: dateStr,
     version_contrat: config?.version_contrat || 'v1.0',
   };

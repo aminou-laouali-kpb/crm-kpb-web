@@ -35,6 +35,7 @@ import {
   OBJECTIF_OPTIONS,
   PRESTATIONS_ARTICLE_31,
 } from '@/constants/contractConfig';
+import { DEFAULT_ENTITY_KEY, ENTITY_OPTIONS, getEntity } from '@/config/entities';
 import { buildWhatsAppLink } from '@/utils/whatsappUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { Copy, MessageCircle, Plus, FileSignature, Pencil } from 'lucide-react';
@@ -65,6 +66,7 @@ const emptyEngagement = {
   echeancier: '30 % à la signature, 40 % au dépôt, 30 % à l\'admission',
   duree_mois: '12',
   sales_rep: '',
+  entity_key: DEFAULT_ENTITY_KEY,
 };
 
 const ClientsPage = () => {
@@ -165,9 +167,13 @@ const ClientsPage = () => {
       sales_rep: engagementForm.sales_rep || null,
     });
 
+    const entityKey = engagementForm.entity_key || DEFAULT_ENTITY_KEY;
+    const entity = getEntity(entityKey);
     const link = await createLink.mutateAsync({
       clientId: selectedClient.id,
       engagementId: eng.id,
+      entityKey,
+      entity,
     });
 
     setEngagementDialog(false);
@@ -176,25 +182,27 @@ const ClientsPage = () => {
 
     const message =
       `Bonjour ${selectedClient.first_name},\n\n` +
-      `Veuillez signer votre contrat de prestation KPB Education via ce lien sécurisé :\n${link.url}\n\n` +
+      `Veuillez signer votre contrat de prestation via ce lien sécurisé :\n${link.url}\n\n` +
       `Ce lien expire le ${new Date(link.expires_at).toLocaleDateString('fr-FR')}.\n\n` +
-      `Cordialement,\nKPB Education`;
+      `Cordialement,\n${entity.legal_name}`;
     window.open(buildWhatsAppLink(selectedClient.whatsapp, message), '_blank');
   };
 
-  const resendLink = async (client, engagement) => {
+  const resendLink = async (client, engagement, entityKey = DEFAULT_ENTITY_KEY) => {
+    const entity = getEntity(entityKey);
     const link = await createLink.mutateAsync({
       clientId: client.id,
       engagementId: engagement.id,
+      entityKey,
+      entity,
     });
     await navigator.clipboard.writeText(link.url).catch(() => {});
-    toast.success('Nouveau lien copié');
+    toast.success('Nouveau lien copié (précédent révoqué)');
     const message =
       `Bonjour ${client.first_name},\n\n` +
-      `Lien de signature de votre contrat KPB Education :\n${link.url}\n\nCordialement,\nKPB Education`;
+      `Lien de signature de votre contrat :\n${link.url}\n\nCordialement,\n${entity.legal_name}`;
     window.open(buildWhatsAppLink(client.whatsapp, message), '_blank');
   };
-
   const signatureBadge = (client) => {
     const signed = (client.contract_signatures || []).some((s) => s.signed_at);
     if (signed) return <Badge className="bg-green-100 text-green-800">Contrat signé</Badge>;
@@ -388,6 +396,23 @@ const ClientsPage = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
+            <div>
+              <Label>Entité contractante</Label>
+              <Select
+                value={engagementForm.entity_key}
+                onValueChange={(v) => setEngagementForm({ ...engagementForm, entity_key: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ENTITY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Figée dans le snapshot au moment de la génération du lien.
+              </p>
+            </div>
             <div>
               <Label>Programme</Label>
               <Select value={engagementForm.programme} onValueChange={(v) => setEngagementForm({ ...engagementForm, programme: v })}>

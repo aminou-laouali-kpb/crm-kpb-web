@@ -12,6 +12,8 @@ export function generateContractPdfBlob({
   contractHash,
   templateVersion,
   signerIp,
+  signatureImage,
+  entityName,
 }) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const margin = 40;
@@ -35,7 +37,7 @@ export function generateContractPdfBlob({
     }
   };
 
-  addLine('KPB Education — Contrat de prestation signé', { bold: true, fontSize: 14 });
+  addLine(`${entityName || 'KPB'} — Contrat de prestation signé`, { bold: true, fontSize: 14 });
   y += 6;
   addLine(`Version : ${templateVersion}`);
   addLine(`Signataire : ${signerName} <${signerEmail}>`);
@@ -46,7 +48,6 @@ export function generateContractPdfBlob({
   addLine('— Contenu du contrat —', { bold: true, fontSize: 11 });
   y += 4;
 
-  // Strip markdown markers for PDF readability
   const plain = String(renderedBody || '')
     .replace(/\*\*/g, '')
     .replace(/^#+\s*/gm, '')
@@ -59,7 +60,20 @@ export function generateContractPdfBlob({
 
   y += 12;
   addLine('— Preuve de signature électronique —', { bold: true, fontSize: 11 });
-  addLine('Le client a coché « Lu et approuvé » et signé électroniquement via la plateforme KPB Education.');
+  addLine('Le client a coché « Lu et approuvé » et signé électroniquement via la plateforme.');
+
+  if (signatureImage && String(signatureImage).startsWith('data:image')) {
+    try {
+      if (y > doc.internal.pageSize.getHeight() - 120) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.addImage(signatureImage, 'PNG', margin, y, 180, 60);
+      y += 70;
+    } catch {
+      // ignore invalid signature image
+    }
+  }
 
   return doc.output('blob');
 }
