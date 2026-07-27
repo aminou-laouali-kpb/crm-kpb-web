@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -200,6 +200,36 @@ const CRMPage = () => {
       toast.error("Erreur lors de la mise à jour");
     } finally {
       setUploadingReceipt(false);
+    }
+  };
+
+  const handleViewReceipt = async (receiptPath) => {
+    if (!receiptPath) {
+      toast.error("Aucun reçu disponible pour cette facture");
+      return;
+    }
+
+    // Open synchronously to avoid popup blockers after the async storage call
+    const previewWindow = window.open('about:blank', '_blank');
+
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.storage
+        .from('payment-receipts')
+        .createSignedUrl(receiptPath, 300);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('Signed URL missing');
+
+      if (previewWindow) {
+        previewWindow.location.href = data.signedUrl;
+      } else {
+        // Fallback when the browser blocked window.open
+        window.location.assign(data.signedUrl);
+      }
+    } catch (err) {
+      if (previewWindow) previewWindow.close();
+      console.error('Receipt open failed:', err);
+      toast.error("Impossible d'ouvrir le reçu");
     }
   };
 
@@ -622,6 +652,17 @@ const CRMPage = () => {
                         phone={invoice.client_whatsapp}
                         message={buildInvoiceWhatsAppMessage(invoice)}
                       />
+                      {invoice.receipt_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewReceipt(invoice.receipt_url)}
+                          className="p-1 md:p-2"
+                          title="Voir le reçu"
+                        >
+                          <Receipt className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

@@ -205,6 +205,10 @@ const ReportsPage = () => {
   };
 
   const handleDownloadReceipt = async (receiptUrl) => {
+    if (!receiptUrl) {
+      toast.error("Aucun reçu disponible");
+      return;
+    }
     try {
       const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase.storage
@@ -218,6 +222,7 @@ const ReportsPage = () => {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
+      console.error('Receipt download failed:', e);
       toast.error("Erreur lors du téléchargement du reçu");
     }
   };
