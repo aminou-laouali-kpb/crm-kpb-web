@@ -116,10 +116,10 @@ const CRMPage = () => {
     }
   };
 
-  const handleStatusChange = async (invoiceId, newStatus, currentPaymentType = '') => {
+  const handleStatusChange = async (invoiceId, newStatus, currentPaymentType = '', invoice = null) => {
     if (newStatus === 'paid') {
       // Ouvrir la boîte de dialogue pour choisir le mode de paiement
-      setPendingStatusChange({ invoiceId, newStatus });
+      setPendingStatusChange({ invoiceId, newStatus, invoice });
       setSelectedPaymentMethod(currentPaymentType || '');
       setPaymentDialogOpen(true);
       return;
@@ -192,10 +192,33 @@ const CRMPage = () => {
       
       toast.success("Facture marquée comme payée avec reçu");
       setPaymentDialogOpen(false);
+
+      const paidInvoice = pendingStatusChange?.invoice;
       setPendingStatusChange(null);
       setSelectedPaymentMethod('');
       setReceiptFile(null);
       fetchInvoices();
+
+      // Contrat électronique : demandé après paiement, pas avant la facture
+      if (paidInvoice?.client_id) {
+        toast.message("Prochaine étape : contrat", {
+          description: "Envoyez le lien de signature depuis Clients / Contrats pour démarrer le process.",
+          action: {
+            label: "Ouvrir Contrats",
+            onClick: () => navigate('/contracts'),
+          },
+          duration: 10000,
+        });
+      } else {
+        toast.message("Prochaine étape : contrat", {
+          description: "Complétez le client puis envoyez le lien de signature avant de démarrer le process.",
+          action: {
+            label: "Clients",
+            onClick: () => navigate('/clients'),
+          },
+          duration: 10000,
+        });
+      }
     } catch (error) {
       toast.error("Erreur lors de la mise à jour");
     } finally {
@@ -632,7 +655,7 @@ const CRMPage = () => {
                   <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <Select
                       value={invoice.status}
-                      onValueChange={(value) => handleStatusChange(invoice.id, value, invoice.payment_type)}
+                      onValueChange={(value) => handleStatusChange(invoice.id, value, invoice.payment_type, invoice)}
                     >
                       <SelectTrigger className={`w-32 md:w-48 text-xs md:text-sm ${STATUS_COLORS[invoice.status]}`}>
                         <SelectValue />

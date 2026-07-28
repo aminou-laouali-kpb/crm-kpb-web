@@ -35,9 +35,17 @@ export const useCreateClient = () => {
   return useMutation({
     mutationFn: async (payload) => {
       const { data: { user } } = await supabase.auth.getUser();
+      const email = String(payload.email || '').trim().toLowerCase();
+      const insertPayload = {
+        ...payload,
+        email,
+        created_by: user?.id,
+      };
+
+      // Prefer upsert by email so commercials don't hit unique-constraint failures
       const { data, error } = await supabase
         .from('clients')
-        .insert({ ...payload, created_by: user?.id })
+        .upsert(insertPayload, { onConflict: 'email' })
         .select()
         .single();
       if (error) throw error;
@@ -45,9 +53,28 @@ export const useCreateClient = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY });
-      toast.success('Client créé');
+      toast.success('Client enregistré');
     },
     onError: (e) => toast.error(e.message || 'Erreur création client'),
+  });
+};
+
+export const useUpsertClientFromInvoice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ firstName, lastName, email, whatsapp }) => {
+      const { data, error } = await supabase.rpc('upsert_client_from_invoice', {
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: email,
+        p_whatsapp: whatsapp,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY });
+    },
   });
 };
 

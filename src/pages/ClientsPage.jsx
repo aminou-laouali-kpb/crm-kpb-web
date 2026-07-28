@@ -224,7 +224,7 @@ const ClientsPage = () => {
   };
 
   return (
-    <AppLayout title="Clients & Contrats" subtitle="Signature électronique avant facturation">
+    <AppLayout title="Clients" subtitle="Fiches clients — le contrat se signe après paiement de la facture">
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <Input
           placeholder="Rechercher un client..."

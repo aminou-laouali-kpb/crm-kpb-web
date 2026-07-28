@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatCurrency';
 import FloatingLabelInput from '../components/FloatingLabelInput';
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { validateInvoiceData, sanitizeText } from '../utils/validation';
 import { generateSequentialInvoiceNumber, generateRandomInvoiceNumber } from '../utils/invoiceNumber';
 import { useCreateInvoice } from '@/hooks/useInvoices';
-import { useClients, useClientSignatureStatus } from '@/hooks/useClients';
+import { useClients, useUpsertClientFromInvoice } from '@/hooks/useClients';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -23,14 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertTriangle } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
+  const upsertClient = useUpsertClientFromInvoice();
   const { data: clients = [] } = useClients();
   const [selectedClientId, setSelectedClientId] = useState('');
-  const { data: hasValidSignature, isLoading: checkingSignature } = useClientSignatureStatus(selectedClientId || null);
   const [selectedCurrency, setSelectedCurrency] = useState("XOF");
   const [clientInfo, setClientInfo] = useState({
     firstName: "",
@@ -43,14 +42,7 @@ const Index = () => {
   const [selectedPayments, setSelectedPayments] = useState(["USA"]);
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState(0);
-
-  const signedClients = useMemo(
-    () =>
-      clients.filter((c) =>
-        (c.contract_signatures || []).some((s) => s.signed_at)
-      ),
-    [clients]
-  );
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const savedFormData = sessionStorage.getItem("formData");
@@ -97,6 +89,10 @@ const Index = () => {
   }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency, selectedClientId]);
 
   const handleSelectClient = (clientId) => {
+    if (clientId === 'new') {
+      setSelectedClientId('');
+      return;
+    }
     setSelectedClientId(clientId);
     const client = clients.find((c) => c.id === clientId);
     if (client) {
@@ -114,17 +110,19 @@ const Index = () => {
     setter((prev) => ({ ...prev, [name]: value }));
   };
 
-  const canGenerate = !!selectedClientId && hasValidSignature === true && !checkingSignature;
+  const canGenerate =
+    !!clientInfo.firstName?.trim()
+    && !!clientInfo.lastName?.trim()
+    && !!clientInfo.email?.trim()
+    && !!clientInfo.whatsapp?.trim()
+    && !!salesRep
+    && !!invoice.number
+    && !!invoice.date
+    && !!service
+    && Number(grandTotal) > 0
+    && !submitting;
 
   const handleTemplateClick = async (templateNumber) => {
-    if (!selectedClientId) {
-      toast.error("Sélectionnez un client ayant signé le contrat");
-      return;
-    }
-    if (!hasValidSignature) {
-      toast.error("Contrat non signé — envoyez le lien depuis Clients / Contrats");
-      return;
-    }
     if (!salesRep) {
       toast.error("Veuillez sélectionner un commercial");
       return;
@@ -146,12 +144,23 @@ const Index = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       const validated = validation.data;
+
+      // Auto-create / update CRM client from invoice identity fields
+      const clientId = await upsertClient.mutateAsync({
+        firstName: validated.firstName,
+        lastName: validated.lastName,
+        email: validated.email,
+        whatsapp: validated.whatsapp,
+      });
+      setSelectedClientId(clientId);
+
       const data = await createInvoice.mutateAsync({
         invoice_number: validated.invoiceNumber,
         invoice_date: validated.invoiceDate,
-        client_id: selectedClientId,
+        client_id: clientId,
         client_first_name: validated.firstName,
         client_last_name: validated.lastName,
         client_email: validated.email,
@@ -165,7 +174,7 @@ const Index = () => {
         status: 'generated'
       });
 
-      toast.success("Facture enregistrée avec succès!");
+      toast.success("Facture enregistrée — client ajouté automatiquement");
 
       const formData = {
         clientInfo,
@@ -175,7 +184,7 @@ const Index = () => {
         salesRep,
         grandTotal,
         selectedCurrency,
-        clientId: selectedClientId,
+        clientId,
       };
       sessionStorage.setItem("formData", JSON.stringify(formData));
       navigate("/template", {
@@ -184,6 +193,8 @@ const Index = () => {
     } catch (error) {
       const msg = error?.message || "Erreur lors de l'enregistrement de la facture";
       toast.error(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -219,7 +230,7 @@ const Index = () => {
   return (
     <AppLayout
       title="Générateur de Factures KPB"
-      subtitle="Créez vos factures professionnelles en quelques clics"
+      subtitle="Créez la facture — le client est créé automatiquement. Le contrat se signe après paiement."
     >
       <div className="relative pb-20 md:pb-8">
         <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 flex flex-col gap-3 z-50">
@@ -245,38 +256,26 @@ const Index = () => {
           <div className="w-full md:w-1/2 glass rounded-2xl p-6 md:p-8 shadow-lg">
             <form>
               <div className="mb-6">
-                <Label className="text-base font-semibold mb-2 block">Client (contrat signé requis)</Label>
-                <Select value={selectedClientId} onValueChange={handleSelectClient}>
+                <Label className="text-base font-semibold mb-2 block">
+                  Client existant (optionnel)
+                </Label>
+                <Select value={selectedClientId || 'new'} onValueChange={handleSelectClient}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un client signé" />
+                    <SelectValue placeholder="Nouveau client via le formulaire" />
                   </SelectTrigger>
                   <SelectContent>
-                    {signedClients.map((c) => (
+                    <SelectItem value="new">Nouveau client (saisie ci-dessous)</SelectItem>
+                    {clients.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.first_name} {c.last_name} — {c.email}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {signedClients.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Aucun client avec contrat signé.{' '}
-                    <button type="button" className="underline text-primary" onClick={() => navigate('/clients')}>
-                      Aller à Clients / Contrats
-                    </button>
-                  </p>
-                )}
-                {selectedClientId && hasValidSignature === false && !checkingSignature && (
-                  <div className="mt-2 flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>
-                      Contrat non signé pour la version active.{' '}
-                      <button type="button" className="underline" onClick={() => navigate('/clients')}>
-                        Envoyer le lien
-                      </button>
-                    </span>
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Remplissez les infos client : à la génération, le client est créé ou mis à jour automatiquement.
+                  Le contrat électronique n&apos;est demandé qu&apos;après paiement.
+                </p>
               </div>
 
               <ClientInfoSection
@@ -338,7 +337,7 @@ const Index = () => {
             <h2 className="text-xl md:text-2xl font-bold mb-4">Choisir un modèle</h2>
             {!canGenerate && (
               <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900">
-                Génération bloquée tant qu&apos;un client avec signature valide n&apos;est pas sélectionné.
+                Complétez les infos client, le montant, le commercial et la date pour générer.
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 md:gap-4">
@@ -357,15 +356,17 @@ const Index = () => {
                     <div>
                       <h3 className="text-base md:text-lg font-semibold">{template.name}</h3>
                       <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                        {canGenerate ? 'Cliquez pour générer la facture' : 'Contrat requis'}
+                        {canGenerate
+                          ? (submitting ? 'Enregistrement…' : 'Cliquez pour générer la facture')
+                          : 'Formulaire incomplet'}
                       </p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <Button variant="link" className="mt-4 px-0" onClick={() => navigate('/clients')}>
-              Gérer les clients et contrats →
+            <Button variant="link" className="mt-4 px-0" onClick={() => navigate('/contracts')}>
+              Suivi des contrats (après paiement) →
             </Button>
           </div>
         </div>
