@@ -171,6 +171,42 @@ export const useCreateSigningLink = () => {
   });
 };
 
+export const useSendContractFromInvoice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId, entityKey = 'kpb_education_ne' }) => {
+      const { data, error } = await supabase.rpc('create_contract_request_from_invoice', {
+        p_invoice_id: invoiceId,
+        p_entity_key: entityKey,
+      });
+      if (error) {
+        const msg = error.message || '';
+        if (/après paiement/i.test(msg)) {
+          throw new Error('Le contrat ne peut être envoyé qu’après paiement de la facture');
+        }
+        if (/modèle de contrat/i.test(msg)) {
+          throw new Error('Aucun modèle de contrat actif — contactez un admin');
+        }
+        throw error;
+      }
+      if (!data?.ok) {
+        throw new Error(data?.error || 'Impossible de créer le lien de signature');
+      }
+      return {
+        token: data.token,
+        request_id: data.request_id,
+        url: `${window.location.origin}/contrat/${data.token}`,
+        expires_at: data.expires_at,
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CLIENTS_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['contract-status'] });
+    },
+    onError: (e) => toast.error(e.message || 'Erreur génération du lien de signature'),
+  });
+};
+
 export const useContractStatusList = () =>
   useQuery({
     queryKey: ['contract-status'],

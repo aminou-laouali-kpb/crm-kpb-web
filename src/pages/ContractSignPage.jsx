@@ -96,6 +96,19 @@ function SignaturePad({ onChange }) {
 
 
 
+const IDENTITY_FIELDS = [
+  { key: 'date_naissance', label: 'Date de naissance', type: 'date' },
+  { key: 'lieu_naissance', label: 'Lieu de naissance', type: 'text' },
+  { key: 'nationalite', label: 'Nationalité', type: 'text' },
+  { key: 'piece_identite', label: 'N° pièce d’identité (CNI / passeport)', type: 'text' },
+  { key: 'adresse', label: 'Adresse complète', type: 'text' },
+];
+
+const getMissingIdentityFields = (client) =>
+  IDENTITY_FIELDS
+    .filter(({ key }) => !client?.[key] || String(client[key]).trim() === '')
+    .map(({ key }) => key);
+
 const ContractSignPage = () => {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
@@ -110,7 +123,30 @@ const ContractSignPage = () => {
   const [signing, setSigning] = useState(false);
   const [done, setDone] = useState(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [missingFields, setMissingFields] = useState([]);
+  const [identityForm, setIdentityForm] = useState({});
+  const [savingIdentity, setSavingIdentity] = useState(false);
   const scrollRef = useRef(null);
+
+  const renderBodyFromContext = (data, clientOverride = null) => {
+    const prefill = data.prefill || {};
+    const entity = {
+      ...getEntity(data.entity_key),
+      ...(prefill.entity || {}),
+    };
+    const config = {
+      ...DEFAULT_CONTRACT_CONFIG,
+      ...(prefill.contract_config || {}),
+      version_contrat: data.template?.version || DEFAULT_CONTRACT_CONFIG.version_contrat,
+    };
+    const vars = buildContractVars({
+      client: clientOverride || prefill.client,
+      engagement: prefill.engagement,
+      config,
+      entity,
+    });
+    return renderContract(data.template.body_md, vars);
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute('referrerpolicy', 'no-referrer');
@@ -174,26 +210,15 @@ const ContractSignPage = () => {
         }
 
         const prefill = data.prefill || {};
-        const entity = {
-          ...getEntity(data.entity_key),
-          ...(prefill.entity || {}),
-        };
-        const config = {
-          ...DEFAULT_CONTRACT_CONFIG,
-          ...(prefill.contract_config || {}),
-          version_contrat: data.template?.version || DEFAULT_CONTRACT_CONFIG.version_contrat,
-        };
-        const vars = buildContractVars({
-          client: prefill.client,
-          engagement: prefill.engagement,
-          config,
-          entity,
-        });
-        const body = renderContract(data.template.body_md, vars);
-        setRenderedBody(body);
+        setRenderedBody(renderBodyFromContext(data));
 
         const defaultName = `${prefill.client?.first_name || ''} ${prefill.client?.last_name || ''}`.trim();
         setSignerName(defaultName);
+
+        // Infos d'identité à compléter par le client avant signature
+        if (data.state === 'pending' && !data._legacy) {
+          setMissingFields(getMissingIdentityFields(prefill.client));
+        }
 
         if (data.state === 'signed') {
           setDone(data.signature);
@@ -238,11 +263,45 @@ const ContractSignPage = () => {
 
   const canSign =
     state === 'pending'
+    && missingFields.length === 0
     && reachedArticle7
     && readAndAgreed
     && signerName.trim().length > 1
     && !!signatureImage
     && !signing;
+
+  const handleSaveIdentity = async () => {
+    const emptyRequired = missingFields.filter(
+      (key) => !identityForm[key] || String(identityForm[key]).trim() === ''
+    );
+    if (emptyRequired.length > 0) {
+      toast.error('Veuillez remplir tous les champs');
+      return;
+    }
+    setSavingIdentity(true);
+    try {
+      const { data, error: rpcError } = await supabase.rpc('update_contract_request_client_info', {
+        p_token: token,
+        p_fields: identityForm,
+      });
+      if (rpcError) throw rpcError;
+      if (!data?.ok) throw new Error(data?.error || 'Enregistrement impossible');
+
+      const updatedClient = data.client;
+      const newContext = {
+        ...context,
+        prefill: { ...(context.prefill || {}), client: updatedClient },
+      };
+      setContext(newContext);
+      setRenderedBody(renderBodyFromContext(newContext, updatedClient));
+      setMissingFields(data.missing_client_fields || getMissingIdentityFields(updatedClient));
+      toast.success('Informations enregistrées — vous pouvez lire et signer le contrat');
+    } catch (e) {
+      toast.error(e.message || 'Impossible d’enregistrer vos informations');
+    } finally {
+      setSavingIdentity(false);
+    }
+  };
 
   const handleSign = async () => {
     if (!canSign) return;
@@ -416,6 +475,42 @@ const ContractSignPage = () => {
         </div>
       </div>
 
+      {state === 'pending' && missingFields.length > 0 && (
+        <div className="px-4 pb-3 max-w-4xl mx-auto w-full">
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-amber-900">
+                Complétez vos informations avant de signer
+              </h2>
+              <p className="text-xs text-amber-800 mt-1">
+                Ces informations apparaîtront dans le contrat. Elles sont obligatoires pour signer.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {IDENTITY_FIELDS.filter(({ key }) => missingFields.includes(key)).map(({ key, label, type }) => (
+                <div key={key}>
+                  <Label htmlFor={`identity-${key}`} className="text-xs">{label}</Label>
+                  <Input
+                    id={`identity-${key}`}
+                    type={type}
+                    value={identityForm[key] || ''}
+                    onChange={(e) => setIdentityForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                    className="mt-1 bg-white"
+                  />
+                </div>
+              ))}
+            </div>
+            <Button size="sm" onClick={handleSaveIdentity} disabled={savingIdentity}>
+              {savingIdentity ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enregistrement…</>
+              ) : (
+                'Valider mes informations'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 pb-40"
@@ -430,7 +525,12 @@ const ContractSignPage = () => {
 
       <footer className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg p-4">
         <div className="max-w-4xl mx-auto space-y-3">
-          {!reachedArticle7 && (
+          {missingFields.length > 0 && (
+            <p className="text-xs text-amber-700">
+              Complétez d&apos;abord vos informations en haut de la page pour activer la signature.
+            </p>
+          )}
+          {missingFields.length === 0 && !reachedArticle7 && (
             <p className="text-xs text-amber-700">
               Faites défiler jusqu&apos;à l&apos;Article 7 (remboursement) pour activer la signature.
             </p>
