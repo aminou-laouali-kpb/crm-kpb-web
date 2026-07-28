@@ -414,7 +414,7 @@ export type Database = {
           last_status_change: string
           payment_type: string
           receipt_url: string | null
-          sales_representative: string
+          sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status: Database["public"]["Enums"]["invoice_status"]
           template_number: number
@@ -436,7 +436,7 @@ export type Database = {
           last_status_change?: string
           payment_type: string
           receipt_url?: string | null
-          sales_representative: string
+          sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status?: Database["public"]["Enums"]["invoice_status"]
           template_number: number
@@ -458,7 +458,7 @@ export type Database = {
           last_status_change?: string
           payment_type?: string
           receipt_url?: string | null
-          sales_representative?: string
+          sales_representative?: Database["public"]["Enums"]["sales_rep"]
           service_description?: string
           status?: Database["public"]["Enums"]["invoice_status"]
           template_number?: number
@@ -516,33 +516,6 @@ export type Database = {
           recurrence_type?: string | null
           source?: string | null
           status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      sales_reps: {
-        Row: {
-          active: boolean
-          created_at: string
-          email: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          created_at?: string
-          email?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          created_at?: string
-          email?: string | null
-          id?: string
-          name?: string
           updated_at?: string
         }
         Relationships: []
