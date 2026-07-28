@@ -13,7 +13,7 @@ import { generateContractPdfBlob } from '@/utils/contractPdf';
 import { DEFAULT_CONTRACT_CONFIG } from '@/constants/contractConfig';
 import { getEntity } from '@/config/entities';
 import kpbLogo from '@/assets/kpb-logo.png';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, Download } from 'lucide-react';
 
 function SignaturePad({ onChange }) {
   const canvasRef = useRef(null);
@@ -95,6 +95,16 @@ function SignaturePad({ onChange }) {
   );
 }
 
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 const ContractSignPage = () => {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
@@ -108,6 +118,7 @@ const ContractSignPage = () => {
   const [signatureImage, setSignatureImage] = useState('');
   const [signing, setSigning] = useState(false);
   const [done, setDone] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -276,6 +287,7 @@ const ContractSignPage = () => {
         data = reqData;
       }
 
+      let finalized = null;
       try {
         const blob = generateContractPdfBlob({
           renderedBody,
@@ -288,41 +300,66 @@ const ContractSignPage = () => {
           entityName: getEntity(context?.entity_key)?.legal_name,
         });
         const clientId = context.prefill?.client?.id || context.client?.id;
-        const path = `${clientId}/${data.signature_id}.pdf`;
-        const { error: uploadError } = await supabase.storage
-          .from('contract-pdfs')
-          .upload(path, blob, { contentType: 'application/pdf', upsert: true });
-        if (!uploadError) {
-          await supabase.rpc('attach_signature_pdf', {
-            p_signature_id: data.signature_id,
-            p_pdf_url: path,
-          });
-        }
-      } catch {
-        // PDF best-effort
-      }
-
-      try {
-        await supabase.functions.invoke('sign-contract', {
+        const pdfBase64 = await blobToDataUrl(blob);
+        const { data: finalData } = await supabase.functions.invoke('sign-contract', {
           body: {
-            action: 'send_confirmation',
+            action: 'finalize_signature',
             signature_id: data.signature_id,
-            email: data.signer_email,
-            name: data.signer_name || signerName,
             request_id: data.request_id,
+            pdf_base64: pdfBase64,
+            pdf_path: `${clientId}/${data.signature_id}.pdf`,
           },
         });
-      } catch {
-        // optional
+        finalized = finalData;
+      } catch (pdfError) {
+        console.error('Contract PDF finalize failed:', pdfError);
       }
 
-      setDone(data);
+      if (!context?._legacy) {
+        try {
+          await supabase.functions.invoke('sign-contract', {
+            body: {
+              action: 'send_confirmation',
+              signature_id: data.signature_id,
+              request_id: data.request_id,
+            },
+          });
+        } catch (emailError) {
+          console.error('Contract confirmation email failed:', emailError);
+        }
+      }
+
+      setDone({ ...data, pdf_signed_url: finalized?.pdf_signed_url || null });
       setState('signed');
       toast.success('Contrat signé. Une copie vous a été envoyée par e-mail.');
     } catch (e) {
       toast.error(e.message || 'Échec de la signature');
     } finally {
       setSigning(false);
+    }
+  };
+
+  const handleDownloadSignedPdf = async () => {
+    if (context?._legacy) {
+      toast.error('Téléchargement non disponible pour cet ancien lien');
+      return;
+    }
+
+    setDownloadingPdf(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('sign-contract', {
+        body: {
+          action: 'get_signed_pdf',
+          token,
+        },
+      });
+      if (fnError) throw fnError;
+      if (!data?.signed_url) throw new Error('PDF indisponible');
+      window.open(data.signed_url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast.error(e.message || 'Impossible de télécharger le PDF');
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -359,6 +396,15 @@ const ContractSignPage = () => {
               ? ` Le ${new Date(done.signed_at).toLocaleString('fr-FR')}.`
               : ''}
           </p>
+          <div className="flex justify-center">
+            <Button type="button" variant="outline" onClick={handleDownloadSignedPdf} disabled={downloadingPdf}>
+              {downloadingPdf ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Téléchargement…</>
+              ) : (
+                <><Download className="h-4 w-4 mr-2" />Télécharger le PDF signé</>
+              )}
+            </Button>
+          </div>
           {renderedBody && (
             <div
               className="text-left prose prose-sm max-w-none max-h-[50vh] overflow-y-auto border rounded-md p-4 bg-white"
