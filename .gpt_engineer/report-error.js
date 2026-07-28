@@ -12,12 +12,20 @@ const patchFetch = (reportHTTPError) => {
       // Call the original fetch function
       const response = await originalFetch(...args);
 
-      // Optionally, check for errors or log them
+      // Optionally, check for errors or log them.
+      // Clone before reading so Supabase/other callers can still consume the body.
       if (!response.ok) {
-        const body = response?.text ? await response.text() : undefined;
+        let body;
+        try {
+          body = response.clone?.()?.text
+            ? await response.clone().text()
+            : undefined;
+        } catch {
+          body = undefined;
+        }
         reportHTTPError("non_200_response", {
-          ...response,
           status: response.status,
+          statusText: response.statusText,
           url: args?.[0] || response.url,
           body,
           method: args?.[1]?.method || "GET",
