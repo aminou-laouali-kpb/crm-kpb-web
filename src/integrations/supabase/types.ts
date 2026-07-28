@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           accessed_at: string
@@ -81,6 +102,221 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          adresse: string | null
+          created_at: string
+          created_by: string | null
+          date_naissance: string | null
+          email: string
+          first_name: string
+          id: string
+          is_minor: boolean
+          last_name: string
+          lieu_naissance: string | null
+          nationalite: string | null
+          piece_identite: string | null
+          representant_legal_lien: string | null
+          representant_legal_nom: string | null
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          adresse?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_naissance?: string | null
+          email: string
+          first_name: string
+          id?: string
+          is_minor?: boolean
+          last_name: string
+          lieu_naissance?: string | null
+          nationalite?: string | null
+          piece_identite?: string | null
+          representant_legal_lien?: string | null
+          representant_legal_nom?: string | null
+          updated_at?: string
+          whatsapp: string
+        }
+        Update: {
+          adresse?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_naissance?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          is_minor?: boolean
+          last_name?: string
+          lieu_naissance?: string | null
+          nationalite?: string | null
+          piece_identite?: string | null
+          representant_legal_lien?: string | null
+          representant_legal_nom?: string | null
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
+      contract_signatures: {
+        Row: {
+          bon_de_commande: Json | null
+          client_id: string
+          contract_hash: string
+          created_at: string
+          engagement_id: string | null
+          id: string
+          pdf_url: string | null
+          read_and_agreed: boolean
+          rendered_body: string
+          signed_at: string | null
+          signer_email: string | null
+          signer_ip: unknown
+          signer_name: string | null
+          template_version: string
+          user_agent: string | null
+        }
+        Insert: {
+          bon_de_commande?: Json | null
+          client_id: string
+          contract_hash: string
+          created_at?: string
+          engagement_id?: string | null
+          id?: string
+          pdf_url?: string | null
+          read_and_agreed?: boolean
+          rendered_body: string
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_ip?: unknown
+          signer_name?: string | null
+          template_version: string
+          user_agent?: string | null
+        }
+        Update: {
+          bon_de_commande?: Json | null
+          client_id?: string
+          contract_hash?: string
+          created_at?: string
+          engagement_id?: string | null
+          id?: string
+          pdf_url?: string | null
+          read_and_agreed?: boolean
+          rendered_body?: string
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_ip?: unknown
+          signer_name?: string | null
+          template_version?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_signatures_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_signatures_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_templates: {
+        Row: {
+          body_md: string
+          created_at: string
+          id: string
+          is_active: boolean
+          version: string
+        }
+        Insert: {
+          body_md: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          version: string
+        }
+        Update: {
+          body_md?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          version?: string
+        }
+        Relationships: []
+      }
+      engagements: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          devise: string
+          duree_mois: number
+          echeancier: string | null
+          etablissements_cibles: string | null
+          frais_inscription: number
+          id: string
+          objectif: string
+          prestations_incluses: string[]
+          prix_total: number
+          programme: string
+          sales_rep: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          devise?: string
+          duree_mois?: number
+          echeancier?: string | null
+          etablissements_cibles?: string | null
+          frais_inscription?: number
+          id?: string
+          objectif: string
+          prestations_incluses?: string[]
+          prix_total: number
+          programme: string
+          sales_rep?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          devise?: string
+          duree_mois?: number
+          echeancier?: string | null
+          etablissements_cibles?: string | null
+          frais_inscription?: number
+          id?: string
+          objectif?: string
+          prestations_incluses?: string[]
+          prix_total?: number
+          programme?: string
+          sales_rep?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -167,6 +403,7 @@ export type Database = {
           amount: number
           client_email: string
           client_first_name: string
+          client_id: string | null
           client_last_name: string
           client_whatsapp: string
           created_at: string
@@ -188,6 +425,7 @@ export type Database = {
           amount: number
           client_email: string
           client_first_name: string
+          client_id?: string | null
           client_last_name: string
           client_whatsapp: string
           created_at?: string
@@ -209,6 +447,7 @@ export type Database = {
           amount?: number
           client_email?: string
           client_first_name?: string
+          client_id?: string | null
           client_last_name?: string
           client_whatsapp?: string
           created_at?: string
@@ -226,7 +465,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       planned_income: {
         Row: {
