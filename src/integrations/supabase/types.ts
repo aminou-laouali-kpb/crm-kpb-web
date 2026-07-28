@@ -597,6 +597,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      create_contract_request_from_invoice: {
+        Args: { p_entity_key?: string; p_invoice_id: string }
+        Returns: Json
+      }
       get_invoice_stats: {
         Args: { p_end_date?: string; p_start_date?: string }
         Returns: {
@@ -618,6 +622,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      update_contract_request_client_info: {
+        Args: { p_fields: Json; p_token: string }
+        Returns: Json
       }
       upsert_client_from_invoice: {
         Args: {
