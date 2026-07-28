@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Settings,
+  FileSignature,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountingAccess } from '@/hooks/useAccountingAccess';
@@ -34,6 +35,8 @@ const AppLayout = ({ children, title, subtitle }) => {
   const navItems = [
     { to: '/', label: 'Factures', icon: FileText },
     { to: '/crm', label: 'CRM', icon: Users },
+    { to: '/clients', label: 'Clients', icon: Users },
+    { to: '/contracts', label: 'Contrats', icon: FileSignature },
     { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
     { to: '/reports', label: 'Rapports', icon: FileBarChart },
     ...(hasAccountingAccess
