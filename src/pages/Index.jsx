@@ -148,33 +148,79 @@ const Index = () => {
     try {
       const validated = validation.data;
 
-      // Auto-create / update CRM client from invoice identity fields
-      const clientId = await upsertClient.mutateAsync({
-        firstName: validated.firstName,
-        lastName: validated.lastName,
-        email: validated.email,
-        whatsapp: validated.whatsapp,
-      });
-      setSelectedClientId(clientId);
+      // Auto-create / update CRM client — never block invoice generation if this fails
+      let clientId = null;
+      try {
+        clientId = await upsertClient.mutateAsync({
+          firstName: validated.firstName,
+          lastName: validated.lastName,
+          email: validated.email,
+          whatsapp: validated.whatsapp,
+        });
+        setSelectedClientId(clientId);
+      } catch (clientError) {
+        console.warn('Client CRM non créé:', clientError);
+        toast.warning(
+          "Facture en cours — le client CRM n'a pas pu être créé automatiquement"
+        );
+      }
 
-      const data = await createInvoice.mutateAsync({
-        invoice_number: validated.invoiceNumber,
-        invoice_date: validated.invoiceDate,
-        client_id: clientId,
-        client_first_name: validated.firstName,
-        client_last_name: validated.lastName,
-        client_email: validated.email,
-        client_whatsapp: validated.whatsapp,
-        service_description: sanitizeText(validated.service),
-        amount: validated.amount,
-        currency: selectedCurrency,
-        payment_type: selectedPayments.join(','),
-        sales_representative: salesRep,
-        template_number: templateNumber,
-        status: 'generated'
-      });
+      let data;
+      try {
+        data = await createInvoice.mutateAsync({
+          invoice_number: validated.invoiceNumber,
+          invoice_date: validated.invoiceDate,
+          ...(clientId ? { client_id: clientId } : {}),
+          client_first_name: validated.firstName,
+          client_last_name: validated.lastName,
+          client_email: validated.email,
+          client_whatsapp: validated.whatsapp,
+          service_description: sanitizeText(validated.service),
+          amount: validated.amount,
+          currency: selectedCurrency,
+          payment_type: selectedPayments.join(','),
+          sales_representative: salesRep,
+          template_number: templateNumber,
+          status: 'generated'
+        });
+      } catch (invoiceError) {
+        const raw = invoiceError?.message || '';
+        // Retry without client_id if a leftover contract gate blocks the insert
+        if (clientId && /contrat|signature|client_id requis/i.test(raw)) {
+          data = await createInvoice.mutateAsync({
+            invoice_number: validated.invoiceNumber,
+            invoice_date: validated.invoiceDate,
+            client_first_name: validated.firstName,
+            client_last_name: validated.lastName,
+            client_email: validated.email,
+            client_whatsapp: validated.whatsapp,
+            service_description: sanitizeText(validated.service),
+            amount: validated.amount,
+            currency: selectedCurrency,
+            payment_type: selectedPayments.join(','),
+            sales_representative: salesRep,
+            template_number: templateNumber,
+            status: 'generated'
+          });
+          toast.warning("Facture créée sans lien client (contrat non requis pour facturer)");
+        } else if (/invalid input value for enum sales_rep/i.test(raw)) {
+          throw new Error(
+            `Le commercial « ${salesRep} » n'est pas reconnu en base. Contactez un admin pour mettre à jour la liste.`
+          );
+        } else if (/accès refusé/i.test(raw)) {
+          throw new Error(
+            "Accès refusé : votre compte n'a pas le rôle commercial. Demandez à un admin de vous l'attribuer."
+          );
+        } else {
+          throw invoiceError;
+        }
+      }
 
-      toast.success("Facture enregistrée — client ajouté automatiquement");
+      toast.success(
+        clientId
+          ? "Facture enregistrée — client ajouté automatiquement"
+          : "Facture enregistrée"
+      );
 
       const formData = {
         clientInfo,
