@@ -372,6 +372,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      upsert_client_from_invoice: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_whatsapp: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "sales_rep" | "comptable" | "commercial"
