@@ -414,7 +414,7 @@ export type Database = {
           last_status_change: string
           payment_type: string
           receipt_url: string | null
-          sales_representative: string
+          sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status: Database["public"]["Enums"]["invoice_status"]
           template_number: number
@@ -436,7 +436,7 @@ export type Database = {
           last_status_change?: string
           payment_type: string
           receipt_url?: string | null
-          sales_representative: string
+          sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status?: Database["public"]["Enums"]["invoice_status"]
           template_number: number
@@ -458,7 +458,7 @@ export type Database = {
           last_status_change?: string
           payment_type?: string
           receipt_url?: string | null
-          sales_representative?: string
+          sales_representative?: Database["public"]["Enums"]["sales_rep"]
           service_description?: string
           status?: Database["public"]["Enums"]["invoice_status"]
           template_number?: number
@@ -516,33 +516,6 @@ export type Database = {
           recurrence_type?: string | null
           source?: string | null
           status?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      sales_reps: {
-        Row: {
-          active: boolean
-          created_at: string
-          email: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          created_at?: string
-          email?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          created_at?: string
-          email?: string | null
-          id?: string
-          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -624,6 +597,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      create_contract_request_from_invoice: {
+        Args: { p_entity_key?: string; p_invoice_id: string }
+        Returns: Json
+      }
       get_invoice_stats: {
         Args: { p_end_date?: string; p_start_date?: string }
         Returns: {
@@ -645,6 +622,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      update_contract_request_client_info: {
+        Args: { p_fields: Json; p_token: string }
+        Returns: Json
       }
       upsert_client_from_invoice: {
         Args: {
