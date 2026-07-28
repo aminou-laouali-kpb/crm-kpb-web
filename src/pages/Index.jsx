@@ -12,24 +12,11 @@ import { toast } from "sonner";
 import { validateInvoiceData, sanitizeText } from '../utils/validation';
 import { generateSequentialInvoiceNumber, generateRandomInvoiceNumber } from '../utils/invoiceNumber';
 import { useCreateInvoice } from '@/hooks/useInvoices';
-import { useClients, useUpsertClientFromInvoice } from '@/hooks/useClients';
 import AppLayout from '@/components/layout/AppLayout';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 const Index = () => {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
-  const upsertClient = useUpsertClientFromInvoice();
-  const { data: clients = [] } = useClients();
-  const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState("XOF");
   const [clientInfo, setClientInfo] = useState({
     firstName: "",
@@ -64,7 +51,6 @@ const Index = () => {
       setSalesRep(parsedData.salesRep || "");
       setGrandTotal(parsedData.grandTotal || 0);
       setSelectedCurrency(parsedData.selectedCurrency || "XOF");
-      if (parsedData.clientId) setSelectedClientId(parsedData.clientId);
     } else {
       generateSequentialInvoiceNumber().then((number) => {
         setInvoice((prev) => ({ ...prev, number }));
@@ -83,27 +69,9 @@ const Index = () => {
       salesRep,
       grandTotal,
       selectedCurrency,
-      clientId: selectedClientId,
     };
     sessionStorage.setItem("formData", JSON.stringify(formData));
-  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency, selectedClientId]);
-
-  const handleSelectClient = (clientId) => {
-    if (clientId === 'new') {
-      setSelectedClientId('');
-      return;
-    }
-    setSelectedClientId(clientId);
-    const client = clients.find((c) => c.id === clientId);
-    if (client) {
-      setClientInfo({
-        firstName: client.first_name || '',
-        lastName: client.last_name || '',
-        email: client.email || '',
-        whatsapp: client.whatsapp || '',
-      });
-    }
-  };
+  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency]);
 
   const handleInputChange = (setter) => (e) => {
     const { name, value } = e.target;
@@ -148,29 +116,11 @@ const Index = () => {
     try {
       const validated = validation.data;
 
-      // Auto-create / update CRM client — never block invoice generation if this fails
-      let clientId = null;
-      try {
-        clientId = await upsertClient.mutateAsync({
-          firstName: validated.firstName,
-          lastName: validated.lastName,
-          email: validated.email,
-          whatsapp: validated.whatsapp,
-        });
-        setSelectedClientId(clientId);
-      } catch (clientError) {
-        console.warn('Client CRM non créé:', clientError);
-        toast.warning(
-          "Facture en cours — le client CRM n'a pas pu être créé automatiquement"
-        );
-      }
-
       let data;
       try {
         data = await createInvoice.mutateAsync({
           invoice_number: validated.invoiceNumber,
           invoice_date: validated.invoiceDate,
-          ...(clientId ? { client_id: clientId } : {}),
           client_first_name: validated.firstName,
           client_last_name: validated.lastName,
           client_email: validated.email,
@@ -185,42 +135,20 @@ const Index = () => {
         });
       } catch (invoiceError) {
         const raw = invoiceError?.message || '';
-        // Retry without client_id if a leftover contract gate blocks the insert
-        if (clientId && /contrat|signature|client_id requis/i.test(raw)) {
-          data = await createInvoice.mutateAsync({
-            invoice_number: validated.invoiceNumber,
-            invoice_date: validated.invoiceDate,
-            client_first_name: validated.firstName,
-            client_last_name: validated.lastName,
-            client_email: validated.email,
-            client_whatsapp: validated.whatsapp,
-            service_description: sanitizeText(validated.service),
-            amount: validated.amount,
-            currency: selectedCurrency,
-            payment_type: selectedPayments.join(','),
-            sales_representative: salesRep,
-            template_number: templateNumber,
-            status: 'generated'
-          });
-          toast.warning("Facture créée sans lien client (contrat non requis pour facturer)");
-        } else if (/invalid input value for enum sales_rep/i.test(raw)) {
+        if (/invalid input value for enum sales_rep/i.test(raw)) {
           throw new Error(
             `Le commercial « ${salesRep} » n'est pas reconnu en base. Contactez un admin pour mettre à jour la liste.`
           );
-        } else if (/accès refusé/i.test(raw)) {
-          throw new Error(
-            "Accès refusé : votre compte n'a pas le rôle commercial. Demandez à un admin de vous l'attribuer."
-          );
-        } else {
-          throw invoiceError;
         }
+        if (/accès refusé|row-level security/i.test(raw)) {
+          throw new Error(
+            "Accès refusé : votre compte n'a pas les droits nécessaires. Contactez un admin."
+          );
+        }
+        throw invoiceError;
       }
 
-      toast.success(
-        clientId
-          ? "Facture enregistrée — client ajouté automatiquement"
-          : "Facture enregistrée"
-      );
+      toast.success("Facture enregistrée");
 
       const formData = {
         clientInfo,
@@ -230,7 +158,6 @@ const Index = () => {
         salesRep,
         grandTotal,
         selectedCurrency,
-        clientId,
       };
       sessionStorage.setItem("formData", JSON.stringify(formData));
       navigate("/template", {
@@ -263,7 +190,6 @@ const Index = () => {
 
   const clearForm = async () => {
     setClientInfo({ firstName: "", lastName: "", email: "", whatsapp: "" });
-    setSelectedClientId('');
     const number = await generateSequentialInvoiceNumber().catch(() => generateRandomInvoiceNumber());
     setInvoice({ date: "", number });
     setService("");
@@ -276,7 +202,7 @@ const Index = () => {
   return (
     <AppLayout
       title="Générateur de Factures KPB"
-      subtitle="Créez la facture — le client est créé automatiquement. Le contrat se signe après paiement."
+      subtitle="Créez des factures professionnelles en quelques clics"
     >
       <div className="relative pb-20 md:pb-8">
         <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 flex flex-col gap-3 z-50">
@@ -301,29 +227,6 @@ const Index = () => {
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           <div className="w-full md:w-1/2 glass rounded-2xl p-6 md:p-8 shadow-lg">
             <form>
-              <div className="mb-6">
-                <Label className="text-base font-semibold mb-2 block">
-                  Client existant (optionnel)
-                </Label>
-                <Select value={selectedClientId || 'new'} onValueChange={handleSelectClient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nouveau client via le formulaire" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">Nouveau client (saisie ci-dessous)</SelectItem>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.first_name} {c.last_name} — {c.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Remplissez les infos client : à la génération, le client est créé ou mis à jour automatiquement.
-                  Le contrat électronique n&apos;est demandé qu&apos;après paiement.
-                </p>
-              </div>
-
               <ClientInfoSection
                 clientInfo={clientInfo}
                 handleInputChange={handleInputChange(setClientInfo)}
@@ -411,9 +314,6 @@ const Index = () => {
                 </div>
               ))}
             </div>
-            <Button variant="link" className="mt-4 px-0" onClick={() => navigate('/contracts')}>
-              Suivi des contrats (après paiement) →
-            </Button>
           </div>
         </div>
       </div>
