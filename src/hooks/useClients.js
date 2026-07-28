@@ -69,7 +69,15 @@ export const useUpsertClientFromInvoice = () => {
         p_email: email,
         p_whatsapp: whatsapp,
       });
-      if (error) throw error;
+      if (error) {
+        const msg = error.message || '';
+        if (/accès refusé/i.test(msg)) {
+          throw new Error(
+            "Accès refusé : votre compte n'a pas le droit de créer un client. Demandez le rôle commercial à un admin."
+          );
+        }
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {
