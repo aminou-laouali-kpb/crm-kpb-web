@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { buildContractVars, renderContract } from '@/utils/renderContract';
 import { sha256Hex } from '@/utils/contractHash';
 import { markdownToHtml } from '@/utils/markdownToHtml';
-import { generateContractPdfBlob } from '@/utils/contractPdf';
 import { DEFAULT_CONTRACT_CONFIG } from '@/constants/contractConfig';
 import { getEntity } from '@/config/entities';
 import kpbLogo from '@/assets/kpb-logo.png';
@@ -96,14 +95,6 @@ function SignaturePad({ onChange }) {
 }
 
 
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
 
 const ContractSignPage = () => {
   const { token } = useParams();
@@ -289,24 +280,12 @@ const ContractSignPage = () => {
 
       let finalized = null;
       try {
-        const blob = generateContractPdfBlob({
-          renderedBody,
-          signerName: data.signer_name || signerName,
-          signerEmail: data.signer_email,
-          signedAt: data.signed_at,
-          contractHash: data.contract_hash || hash,
-          templateVersion: data.template_version,
-          signatureImage,
-          entityName: getEntity(context?.entity_key)?.legal_name,
-        });
         const clientId = context.prefill?.client?.id || context.client?.id;
-        const pdfBase64 = await blobToDataUrl(blob);
         const { data: finalData } = await supabase.functions.invoke('sign-contract', {
           body: {
             action: 'finalize_signature',
             signature_id: data.signature_id,
             request_id: data.request_id,
-            pdf_base64: pdfBase64,
             pdf_path: `${clientId}/${data.signature_id}.pdf`,
           },
         });
