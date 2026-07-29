@@ -280,12 +280,13 @@ const ContractSignPage = () => {
     }
     setSavingIdentity(true);
     try {
-      const { data, error: rpcError } = await supabase.rpc('update_contract_request_client_info', {
-        p_token: token,
-        p_fields: identityForm,
-      });
+      const { data, error: rpcError } = await supabase.functions.invoke(
+        'update-contract-client-info',
+        { body: { token, fields: identityForm } }
+      );
       if (rpcError) throw rpcError;
       if (!data?.ok) throw new Error(data?.error || 'Enregistrement impossible');
+
 
       const updatedClient = data.client;
       const newContext = {
