@@ -52,7 +52,15 @@ export const invoiceSchema = z.object({
 // Validation helper function with user-friendly error messages
 export const validateInvoiceData = (data) => {
   try {
-    const validated = invoiceSchema.parse(data);
+    const normalized = {
+      ...data,
+      // Commercials often type spaces / dashes in phone numbers
+      whatsapp: String(data?.whatsapp || '').trim().replace(/[\s().-]/g, ''),
+      amount: typeof data?.amount === 'number'
+        ? data.amount
+        : Number.parseFloat(String(data?.amount ?? '').replace(',', '.')),
+    };
+    const validated = invoiceSchema.parse(normalized);
     return { success: true, data: validated };
   } catch (error) {
     if (error instanceof z.ZodError) {

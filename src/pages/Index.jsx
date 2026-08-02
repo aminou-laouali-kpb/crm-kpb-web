@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatCurrency';
 import FloatingLabelInput from '../components/FloatingLabelInput';
@@ -11,63 +11,107 @@ import { FiEdit, FiTrash2 } from "react-icons/fi";
 import { toast } from "sonner";
 import { validateInvoiceData, sanitizeText } from '../utils/validation';
 import { generateSequentialInvoiceNumber, generateRandomInvoiceNumber } from '../utils/invoiceNumber';
+import {
+  getMissingInvoiceFields,
+  parseAmountInput,
+  todayISODate,
+} from '../utils/invoiceFormCompleteness';
 import { useCreateInvoice } from '@/hooks/useInvoices';
 import AppLayout from '@/components/layout/AppLayout';
+
+const emptyClient = { firstName: "", lastName: "", email: "", whatsapp: "" };
 
 const Index = () => {
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
+  const hydratedRef = useRef(false);
   const [selectedCurrency, setSelectedCurrency] = useState("XOF");
-  const [clientInfo, setClientInfo] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    whatsapp: ""
-  });
-  const [invoice, setInvoice] = useState({ date: "", number: "" });
+  const [clientInfo, setClientInfo] = useState(emptyClient);
+  const [invoice, setInvoice] = useState({ date: todayISODate(), number: "" });
   const [service, setService] = useState("");
   const [selectedPayments, setSelectedPayments] = useState(["USA"]);
   const [salesRep, setSalesRep] = useState("");
-  const [grandTotal, setGrandTotal] = useState(0);
+  const [grandTotal, setGrandTotal] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const savedFormData = sessionStorage.getItem("formData");
-    if (savedFormData) {
-      const parsedData = JSON.parse(savedFormData);
-      setClientInfo(parsedData.clientInfo || { firstName: "", lastName: "", email: "", whatsapp: "" });
-      setInvoice(parsedData.invoice || { date: "", number: "" });
-      setService(parsedData.service || "");
-      const savedPayments = parsedData.selectedPayments || parsedData.paymentType;
-      if (Array.isArray(savedPayments)) {
-        setSelectedPayments(savedPayments);
-      } else if (savedPayments === 'All') {
-        setSelectedPayments(['USA', 'Niamey', 'France']);
-      } else if (savedPayments) {
-        setSelectedPayments(savedPayments.split(','));
-      } else {
-        setSelectedPayments(['USA']);
-      }
-      setSalesRep(parsedData.salesRep || "");
-      setGrandTotal(parsedData.grandTotal || 0);
-      setSelectedCurrency(parsedData.selectedCurrency || "XOF");
-    } else {
-      generateSequentialInvoiceNumber().then((number) => {
-        setInvoice((prev) => ({ ...prev, number }));
-      }).catch(() => {
-        setInvoice((prev) => ({ ...prev, number: generateRandomInvoiceNumber() }));
-      });
+  const ensureInvoiceNumber = async (currentNumber) => {
+    if (String(currentNumber || '').trim()) return String(currentNumber).trim();
+    try {
+      return await generateSequentialInvoiceNumber();
+    } catch {
+      return generateRandomInvoiceNumber();
     }
+  };
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      const savedFormData = sessionStorage.getItem("formData");
+      let nextClient = emptyClient;
+      let nextInvoice = { date: todayISODate(), number: "" };
+      let nextService = "";
+      let nextPayments = ["USA"];
+      let nextSalesRep = "";
+      let nextTotal = '';
+      let nextCurrency = "XOF";
+
+      if (savedFormData) {
+        try {
+          const parsedData = JSON.parse(savedFormData);
+          nextClient = parsedData.clientInfo || emptyClient;
+          nextInvoice = {
+            date: parsedData.invoice?.date || todayISODate(),
+            number: parsedData.invoice?.number || "",
+          };
+          nextService = parsedData.service || "";
+          const savedPayments =
+            parsedData.selectedPayments
+            || parsedData.paymentInfo?.types
+            || parsedData.paymentType;
+          if (Array.isArray(savedPayments) && savedPayments.length) {
+            nextPayments = savedPayments;
+          } else if (savedPayments === 'All') {
+            nextPayments = ['USA', 'Niamey', 'France'];
+          } else if (typeof savedPayments === 'string' && savedPayments.trim()) {
+            nextPayments = savedPayments.split(',').map((p) => p.trim()).filter(Boolean);
+          }
+          nextSalesRep = parsedData.salesRep || "";
+          nextTotal = parsedData.grandTotal === 0 || parsedData.grandTotal
+            ? String(parsedData.grandTotal)
+            : '';
+          nextCurrency = parsedData.selectedCurrency || "XOF";
+        } catch {
+          // ignore corrupt session data
+        }
+      }
+
+      // Always guarantee an invoice number (session restore often left it empty)
+      nextInvoice.number = await ensureInvoiceNumber(nextInvoice.number);
+      if (!nextInvoice.date) nextInvoice.date = todayISODate();
+
+      setClientInfo(nextClient);
+      setInvoice(nextInvoice);
+      setService(nextService);
+      setSelectedPayments(nextPayments.length ? nextPayments : ["USA"]);
+      setSalesRep(nextSalesRep);
+      setGrandTotal(nextTotal);
+      setSelectedCurrency(nextCurrency);
+      hydratedRef.current = true;
+    };
+
+    bootstrap();
   }, []);
 
   useEffect(() => {
+    // Avoid wiping a previous draft with empty state on first mount
+    if (!hydratedRef.current) return;
     const formData = {
       clientInfo,
       invoice,
       service,
       selectedPayments,
+      paymentInfo: { types: selectedPayments },
       salesRep,
-      grandTotal,
+      grandTotal: parseAmountInput(grandTotal),
       selectedCurrency,
     };
     sessionStorage.setItem("formData", JSON.stringify(formData));
@@ -78,31 +122,37 @@ const Index = () => {
     setter((prev) => ({ ...prev, [name]: value }));
   };
 
-  const canGenerate =
-    !!clientInfo.firstName?.trim()
-    && !!clientInfo.lastName?.trim()
-    && !!clientInfo.email?.trim()
-    && !!clientInfo.whatsapp?.trim()
-    && !!salesRep
-    && !!invoice.number
-    && !!invoice.date
-    && !!service
-    && Number(grandTotal) > 0
-    && !submitting;
+  const amountValue = parseAmountInput(grandTotal);
+  const missingFields = useMemo(
+    () => getMissingInvoiceFields({
+      clientInfo,
+      invoice,
+      service,
+      salesRep,
+      grandTotal: amountValue,
+    }),
+    [clientInfo, invoice, service, salesRep, amountValue]
+  );
+  const canGenerate = missingFields.length === 0 && !submitting;
 
   const handleTemplateClick = async (templateNumber) => {
-    if (!salesRep) {
-      toast.error("Veuillez sélectionner un commercial");
+    if (missingFields.length > 0) {
+      toast.error(`Formulaire incomplet : ${missingFields.join(', ')}`);
       return;
     }
+
+    // Normalize WhatsApp: strip spaces/dashes commercials often type
+    const normalizedWhatsapp = String(clientInfo.whatsapp || '')
+      .trim()
+      .replace(/[\s().-]/g, '');
 
     const validation = validateInvoiceData({
       firstName: clientInfo.firstName,
       lastName: clientInfo.lastName,
       email: clientInfo.email,
-      whatsapp: clientInfo.whatsapp,
+      whatsapp: normalizedWhatsapp,
       service: service,
-      amount: grandTotal,
+      amount: amountValue,
       invoiceNumber: invoice.number,
       invoiceDate: invoice.date
     });
@@ -151,12 +201,16 @@ const Index = () => {
       toast.success("Facture enregistrée");
 
       const formData = {
-        clientInfo,
+        clientInfo: {
+          ...clientInfo,
+          whatsapp: validated.whatsapp,
+        },
         invoice,
         service,
         paymentInfo: { types: selectedPayments },
+        selectedPayments,
         salesRep,
-        grandTotal,
+        grandTotal: amountValue,
         selectedCurrency,
       };
       sessionStorage.setItem("formData", JSON.stringify(formData));
@@ -171,7 +225,7 @@ const Index = () => {
     }
   };
 
-  const fillDummyData = () => {
+  const fillDummyData = async () => {
     setClientInfo({
       firstName: "Jean",
       lastName: "Dupont",
@@ -179,24 +233,26 @@ const Index = () => {
       whatsapp: "+33612345678"
     });
     setInvoice({
-      date: new Date().toISOString().split("T")[0],
-      number: generateRandomInvoiceNumber(),
+      date: todayISODate(),
+      number: await ensureInvoiceNumber(""),
     });
     setService("Formation en développement web - Programme complet de 6 mois");
     setSelectedPayments(["France"]);
     setSalesRep("Josphin");
-    setGrandTotal(1500);
+    setGrandTotal('1500');
   };
 
   const clearForm = async () => {
-    setClientInfo({ firstName: "", lastName: "", email: "", whatsapp: "" });
-    const number = await generateSequentialInvoiceNumber().catch(() => generateRandomInvoiceNumber());
-    setInvoice({ date: "", number });
+    hydratedRef.current = false;
+    setClientInfo(emptyClient);
+    const number = await ensureInvoiceNumber("");
+    setInvoice({ date: todayISODate(), number });
     setService("");
     setSelectedPayments(["USA"]);
     setSalesRep("");
-    setGrandTotal(0);
+    setGrandTotal('');
     sessionStorage.removeItem("formData");
+    hydratedRef.current = true;
   };
 
   return (
@@ -260,16 +316,17 @@ const Index = () => {
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-2">Montant total</h3>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={grandTotal}
-                  onChange={(e) => setGrandTotal(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setGrandTotal(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min="0"
-                  step="0.01"
-                  placeholder="Entrez le montant total"
+                  placeholder="Ex: 150000"
                 />
                 <p className="mt-2 text-sm text-gray-600">
-                  {formatCurrency(grandTotal, selectedCurrency)}
+                  {amountValue > 0
+                    ? formatCurrency(amountValue, selectedCurrency)
+                    : 'Saisissez le montant'}
                 </p>
               </div>
 
@@ -286,7 +343,19 @@ const Index = () => {
             <h2 className="text-xl md:text-2xl font-bold mb-4">Choisir un modèle</h2>
             {!canGenerate && (
               <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900">
-                Complétez les infos client, le montant, le commercial et la date pour générer.
+                <p className="font-medium mb-1">Formulaire incomplet</p>
+                {missingFields.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    {missingFields.map((field) => (
+                      <li key={field}>{field}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Enregistrement en cours…</p>
+                )}
+                <p className="mt-2 text-xs text-amber-800">
+                  Astuce : vérifiez surtout la <strong>date</strong>, le <strong>montant</strong> et le <strong>commercial</strong>.
+                </p>
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 md:gap-4">
@@ -298,7 +367,7 @@ const Index = () => {
                       ? 'cursor-pointer border-border hover:border-primary hover:shadow-lg tap-highlight'
                       : 'opacity-50 cursor-not-allowed border-muted'
                   }`}
-                  onClick={() => canGenerate && handleTemplateClick(index + 1)}
+                  onClick={() => handleTemplateClick(index + 1)}
                   aria-disabled={!canGenerate}
                 >
                   <div className="flex items-center justify-between">
@@ -307,7 +376,9 @@ const Index = () => {
                       <p className="text-xs md:text-sm text-muted-foreground mt-1">
                         {canGenerate
                           ? (submitting ? 'Enregistrement…' : 'Cliquez pour générer la facture')
-                          : 'Formulaire incomplet'}
+                          : (missingFields[0]
+                            ? `Manque : ${missingFields[0]}${missingFields.length > 1 ? ` (+${missingFields.length - 1})` : ''}`
+                            : 'Formulaire incomplet')}
                       </p>
                     </div>
                   </div>
