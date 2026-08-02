@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import React, { Suspense, lazy } from 'react';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
+import RouteErrorBoundary from '@/components/layout/RouteErrorBoundary';
 
 const TemplatePage = lazy(() => import('./pages/TemplatePage'));
 const CRMPage = lazy(() => import('./pages/CRMPage'));
