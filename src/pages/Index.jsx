@@ -384,29 +384,30 @@ const Index = () => {
             )}
             <div className="grid grid-cols-1 gap-3 md:gap-4">
               {templates.map((template, index) => (
-                <div
+                <button
                   key={index}
-                  className={`group p-5 md:p-6 border-2 rounded-2xl transition-smooth glass ${
-                    canGenerate
-                      ? 'cursor-pointer border-border hover:border-primary hover:shadow-lg tap-highlight'
-                      : 'opacity-50 cursor-not-allowed border-muted'
-                  }`}
+                  type="button"
+                  disabled={submitting}
                   onClick={() => handleTemplateClick(index + 1)}
-                  aria-disabled={!canGenerate}
+                  className={`group w-full text-left p-5 md:p-6 border-2 rounded-2xl transition-smooth glass cursor-pointer tap-highlight ${
+                    canGenerate
+                      ? 'border-border hover:border-primary hover:shadow-lg'
+                      : 'opacity-60 border-muted'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base md:text-lg font-semibold">{template.name}</h3>
                       <p className="text-xs md:text-sm text-muted-foreground mt-1">
                         {canGenerate
-                          ? (submitting ? 'Enregistrement…' : 'Cliquez pour générer la facture')
+                          ? (submitting ? 'Enregistrement…' : 'Appuyez pour générer la facture')
                           : (missingFields[0]
                             ? `Manque : ${missingFields[0]}${missingFields.length > 1 ? ` (+${missingFields.length - 1})` : ''}`
                             : 'Formulaire incomplet')}
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
