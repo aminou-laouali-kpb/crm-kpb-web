@@ -33,6 +33,7 @@ const Index = () => {
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const ensureInvoiceNumber = async (currentNumber) => {
     if (String(currentNumber || '').trim()) return String(currentNumber).trim();
