@@ -382,7 +382,13 @@ const Index = () => {
                 </p>
               </div>
             )}
+            {submitError && (
+              <div className="mb-4 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-sm text-destructive">
+                {submitError}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 md:gap-4">
+
               {templates.map((template, index) => (
                 <button
                   key={index}
