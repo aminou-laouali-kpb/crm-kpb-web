@@ -31,7 +31,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
+      <Toaster position="top-center" closeButton />
       <BrowserRouter>
         <RouteErrorBoundary>
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>

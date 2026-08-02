@@ -33,6 +33,7 @@ const Index = () => {
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const ensureInvoiceNumber = async (currentNumber) => {
     if (String(currentNumber || '').trim()) return String(currentNumber).trim();
@@ -114,7 +115,11 @@ const Index = () => {
       grandTotal: parseAmountInput(grandTotal),
       selectedCurrency,
     };
-    sessionStorage.setItem("formData", JSON.stringify(formData));
+    try {
+      sessionStorage.setItem("formData", JSON.stringify(formData));
+    } catch {
+      // Safari private mode blocks storage writes — draft saving is optional
+    }
   }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency]);
 
   const handleInputChange = (setter) => (e) => {
@@ -126,7 +131,9 @@ const Index = () => {
   const missingFields = useMemo(
     () => getMissingInvoiceFields({
       clientInfo,
-      invoice,
+      // The invoice number is auto-generated on submit if still empty,
+      // so it must never block the mobile flow.
+      invoice: { ...invoice, number: invoice.number || 'auto' },
       service,
       salesRep,
       grandTotal: amountValue,
@@ -136,8 +143,11 @@ const Index = () => {
   const canGenerate = missingFields.length === 0 && !submitting;
 
   const handleTemplateClick = async (templateNumber) => {
+    setSubmitError('');
     if (missingFields.length > 0) {
-      toast.error(`Formulaire incomplet : ${missingFields.join(', ')}`);
+      const msg = `Formulaire incomplet : ${missingFields.join(', ')}`;
+      setSubmitError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -146,6 +156,14 @@ const Index = () => {
       .trim()
       .replace(/[\s().-]/g, '');
 
+    setSubmitting(true);
+
+    let invoiceNumber = String(invoice.number || '').trim();
+    if (!invoiceNumber) {
+      invoiceNumber = await ensureInvoiceNumber('');
+      setInvoice((prev) => ({ ...prev, number: invoiceNumber }));
+    }
+
     const validation = validateInvoiceData({
       firstName: clientInfo.firstName,
       lastName: clientInfo.lastName,
@@ -153,16 +171,17 @@ const Index = () => {
       whatsapp: normalizedWhatsapp,
       service: service,
       amount: amountValue,
-      invoiceNumber: invoice.number,
+      invoiceNumber,
       invoiceDate: invoice.date
     });
 
     if (!validation.success) {
+      setSubmitting(false);
+      setSubmitError(validation.error);
       toast.error(validation.error);
       return;
     }
 
-    setSubmitting(true);
     try {
       const validated = validation.data;
 
@@ -205,7 +224,7 @@ const Index = () => {
           ...clientInfo,
           whatsapp: validated.whatsapp,
         },
-        invoice,
+        invoice: { ...invoice, number: validated.invoiceNumber },
         service,
         paymentInfo: { types: selectedPayments },
         selectedPayments,
@@ -213,12 +232,17 @@ const Index = () => {
         grandTotal: amountValue,
         selectedCurrency,
       };
-      sessionStorage.setItem("formData", JSON.stringify(formData));
+      try {
+        sessionStorage.setItem("formData", JSON.stringify(formData));
+      } catch {
+        // Safari private mode can block storage — navigation still works
+      }
       navigate("/template", {
         state: { formData, selectedTemplate: templateNumber, invoiceId: data.id },
       });
     } catch (error) {
       const msg = error?.message || "Erreur lors de l'enregistrement de la facture";
+      setSubmitError(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -358,31 +382,38 @@ const Index = () => {
                 </p>
               </div>
             )}
+            {submitError && (
+              <div className="mb-4 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-sm text-destructive">
+                {submitError}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 md:gap-4">
+
               {templates.map((template, index) => (
-                <div
+                <button
                   key={index}
-                  className={`group p-5 md:p-6 border-2 rounded-2xl transition-smooth glass ${
-                    canGenerate
-                      ? 'cursor-pointer border-border hover:border-primary hover:shadow-lg tap-highlight'
-                      : 'opacity-50 cursor-not-allowed border-muted'
-                  }`}
+                  type="button"
+                  disabled={submitting}
                   onClick={() => handleTemplateClick(index + 1)}
-                  aria-disabled={!canGenerate}
+                  className={`group w-full text-left p-5 md:p-6 border-2 rounded-2xl transition-smooth glass cursor-pointer tap-highlight ${
+                    canGenerate
+                      ? 'border-border hover:border-primary hover:shadow-lg'
+                      : 'opacity-60 border-muted'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base md:text-lg font-semibold">{template.name}</h3>
                       <p className="text-xs md:text-sm text-muted-foreground mt-1">
                         {canGenerate
-                          ? (submitting ? 'Enregistrement…' : 'Cliquez pour générer la facture')
+                          ? (submitting ? 'Enregistrement…' : 'Appuyez pour générer la facture')
                           : (missingFields[0]
                             ? `Manque : ${missingFields[0]}${missingFields.length > 1 ? ` (+${missingFields.length - 1})` : ''}`
                             : 'Formulaire incomplet')}
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
