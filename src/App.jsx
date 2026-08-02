@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import React, { Suspense, lazy } from 'react';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
+import RouteErrorBoundary from '@/components/layout/RouteErrorBoundary';
 
 const TemplatePage = lazy(() => import('./pages/TemplatePage'));
 const CRMPage = lazy(() => import('./pages/CRMPage'));
@@ -32,25 +33,27 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <BrowserRouter>
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/contrat/:token" element={<ContractSignPage />} />
-            <Route path="/sign/:token" element={<ContractSignPage />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/template" element={<TemplatePage />} />
-              <Route path="/crm" element={<CRMPage />} />
-              <Route path="/clients" element={<ClientsPage />} />
-              <Route path="/contracts" element={<ContractsPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/accounting" element={<AccountingPage />} />
-              <Route path="/activity-logs" element={<ActivityLogsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-        </Suspense>
+        <RouteErrorBoundary>
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/contrat/:token" element={<ContractSignPage />} />
+              <Route path="/sign/:token" element={<ContractSignPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/template" element={<TemplatePage />} />
+                <Route path="/crm" element={<CRMPage />} />
+                <Route path="/clients" element={<ClientsPage />} />
+                <Route path="/contracts" element={<ContractsPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/accounting" element={<AccountingPage />} />
+                <Route path="/activity-logs" element={<ActivityLogsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Routes>
+          </Suspense>
+        </RouteErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
