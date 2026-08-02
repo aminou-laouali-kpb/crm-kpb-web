@@ -1,35 +1,25 @@
-## Constat
+## Problème
 
-J'ai testé la page `/auth` dans un navigateur réel :
+Sur iPhone (Safari), après avoir choisi un modèle sur la page générateur, rien ne se passe : ni erreur, ni navigation vers l'aperçu.
 
-- En local (aperçu) : la page s'affiche, aucune erreur console ni erreur runtime.
-- En production (`crm.kpbeducation.cloud/auth`) : la page s'affiche aussi, mais dans une **version plus ancienne** — l'onglet « Inscription » présent dans le code n'y est pas.
+Ce que j'ai vérifié : en base, seules 3 factures ont été créées depuis janvier 2026 (dernière le 2 août), donc l'insertion ne se déclenche pas ou échoue sans retour visible. Le diagnostic exact n'est pas encore confirmé — la première étape du plan est de le confirmer.
 
-Donc le code de la page n'est pas cassé. L'écran blanc que tu vois vient très probablement du **cache navigateur** : toutes les pages sont chargées en `lazy()` et enveloppées dans un simple `Suspense` sans filet de sécurité. Quand une nouvelle version est publiée, l'ancien `index.html` en cache demande un fichier JavaScript qui n'existe plus → le chargement échoue silencieusement et l'écran reste blanc, sans message.
+## Hypothèses à confirmer
 
-Diagnostic à confirmer en premier : ouvrir la page en navigation privée ou faire un rechargement forcé. Si la page apparaît, c'est bien le cache.
+1. **La carte "modèle" est une `<div>` avec `onClick`.** Safari iOS ne déclenche pas toujours l'événement `click` sur un élément non interactif (pas de `<button>`, pas de `tabindex`), surtout quand un clavier virtuel vient de se fermer. Le tap serait donc simplement ignoré.
+2. **Le formulaire est considéré incomplet** (numéro de facture non généré, montant mal parsé) — dans ce cas un toast d'erreur devrait apparaître, mais les toasts peuvent être masqués/hors écran sur mobile.
+3. **Blocage à l'initialisation** : la génération du numéro séquentiel est asynchrone ; si elle reste bloquée, le formulaire reste sans numéro et le bouton reste inactif.
 
-## Ce qu'il faut construire
+## Étapes
 
-1. **Filet de sécurité au chargement des pages**
-   Ajouter un composant d'erreur global autour des routes. S'il détecte un échec de chargement d'un module (message type « Failed to fetch dynamically imported module » / « Importing a module script failed »), il recharge automatiquement la page une seule fois (drapeau en `sessionStorage` pour éviter une boucle). Pour toute autre erreur, il affiche un écran lisible aux couleurs KPB avec un bouton « Recharger ».
-
-2. **Fin de l'écran blanc silencieux**
-   Le message de secours de `Suspense` reste, mais l'erreur n'est plus avalée : l'utilisateur voit soit la page rechargée, soit un message clair.
-
-3. **Empêcher la réapparition du problème**
-   Servir `index.html` sans mise en cache (`Cache-Control: no-cache`) via les en-têtes du build, pour que chaque visite récupère la liste à jour des fichiers JavaScript.
-
-4. **Republier l'application**
-   La version en ligne est en retard sur le code. Une republication est nécessaire pour que les correctifs récents (onglet Inscription, signature de contrat) soient réellement en ligne.
+1. **Reproduire** en émulation iPhone Safari sur l'aperçu : remplir le formulaire, taper une carte modèle, capturer console + réseau pour identifier laquelle des 3 hypothèses s'applique.
+2. **Rendre les cartes réellement cliquables** : transformer chaque carte modèle en `<button type="button">` avec `disabled` géré proprement (au lieu d'une `div` + `aria-disabled`). Cela supprime d'office le problème de tap iOS et donne le retour visuel natif.
+3. **Rendre les erreurs visibles sur mobile** : afficher le message d'échec directement dans la zone "Formulaire incomplet" (bloc ambre déjà présent) en plus du toast, et positionner les toasts en haut sur mobile pour qu'ils ne soient pas cachés par la barre Safari.
+4. **Fiabiliser le numéro de facture** : si la génération asynchrone n'a pas abouti au moment du tap, la générer à la volée dans le handler avant l'insertion, au lieu de bloquer le formulaire.
+5. **Re-tester** en émulation mobile jusqu'à obtenir une facture créée et la navigation vers `/template`.
 
 ## Détails techniques
 
-- Nouveau fichier `src/components/layout/RouteErrorBoundary.jsx` : `class` React avec `componentDidCatch`, détection des erreurs de chargement de chunk par expression régulière, `window.location.reload()` protégé par une clé `sessionStorage`.
-- `src/App.jsx` : envelopper `<Suspense>` avec `<RouteErrorBoundary>`, à l'intérieur de `BrowserRouter`.
-- En-têtes de cache : `no-cache` sur `index.html`, cache long conservé sur les fichiers hachés de `assets/`.
-- Aucun changement de logique métier, d'authentification ou de base de données.
-
-## Hors périmètre
-
-Point séparé repéré au passage (à traiter seulement si tu le veux) : la fonction serveur `update-contract-client-info` n'est pas déclarée dans la configuration, donc la page publique de signature de contrat `/contrat/:token` échouera à l'enregistrement des informations client.
+- Fichiers concernés : `src/pages/Index.jsx` (cartes modèles, handler `handleTemplateClick`, hydratation du numéro), éventuellement `src/main.jsx`/`App.jsx` pour la position du `<Toaster />`.
+- Aucun changement de logique métier, de schéma base de données ni du contenu des factures.
+- Le PDF (`src/utils/pdfGenerator.js`) n'est pas touché à cette étape : le blocage signalé se produit avant l'aperçu.
