@@ -126,7 +126,9 @@ const Index = () => {
   const missingFields = useMemo(
     () => getMissingInvoiceFields({
       clientInfo,
-      invoice,
+      // The invoice number is auto-generated on submit if still empty,
+      // so it must never block the mobile flow.
+      invoice: { ...invoice, number: invoice.number || 'auto' },
       service,
       salesRep,
       grandTotal: amountValue,
@@ -136,8 +138,11 @@ const Index = () => {
   const canGenerate = missingFields.length === 0 && !submitting;
 
   const handleTemplateClick = async (templateNumber) => {
+    setSubmitError('');
     if (missingFields.length > 0) {
-      toast.error(`Formulaire incomplet : ${missingFields.join(', ')}`);
+      const msg = `Formulaire incomplet : ${missingFields.join(', ')}`;
+      setSubmitError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -146,6 +151,14 @@ const Index = () => {
       .trim()
       .replace(/[\s().-]/g, '');
 
+    setSubmitting(true);
+
+    let invoiceNumber = String(invoice.number || '').trim();
+    if (!invoiceNumber) {
+      invoiceNumber = await ensureInvoiceNumber('');
+      setInvoice((prev) => ({ ...prev, number: invoiceNumber }));
+    }
+
     const validation = validateInvoiceData({
       firstName: clientInfo.firstName,
       lastName: clientInfo.lastName,
@@ -153,16 +166,17 @@ const Index = () => {
       whatsapp: normalizedWhatsapp,
       service: service,
       amount: amountValue,
-      invoiceNumber: invoice.number,
+      invoiceNumber,
       invoiceDate: invoice.date
     });
 
     if (!validation.success) {
+      setSubmitting(false);
+      setSubmitError(validation.error);
       toast.error(validation.error);
       return;
     }
 
-    setSubmitting(true);
     try {
       const validated = validation.data;
 
