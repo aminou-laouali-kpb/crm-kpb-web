@@ -115,7 +115,11 @@ const Index = () => {
       grandTotal: parseAmountInput(grandTotal),
       selectedCurrency,
     };
-    sessionStorage.setItem("formData", JSON.stringify(formData));
+    try {
+      sessionStorage.setItem("formData", JSON.stringify(formData));
+    } catch {
+      // Safari private mode blocks storage writes — draft saving is optional
+    }
   }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency]);
 
   const handleInputChange = (setter) => (e) => {
