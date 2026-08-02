@@ -219,7 +219,7 @@ const Index = () => {
           ...clientInfo,
           whatsapp: validated.whatsapp,
         },
-        invoice,
+        invoice: { ...invoice, number: validated.invoiceNumber },
         service,
         paymentInfo: { types: selectedPayments },
         selectedPayments,
@@ -227,12 +227,17 @@ const Index = () => {
         grandTotal: amountValue,
         selectedCurrency,
       };
-      sessionStorage.setItem("formData", JSON.stringify(formData));
+      try {
+        sessionStorage.setItem("formData", JSON.stringify(formData));
+      } catch {
+        // Safari private mode can block storage — navigation still works
+      }
       navigate("/template", {
         state: { formData, selectedTemplate: templateNumber, invoiceId: data.id },
       });
     } catch (error) {
       const msg = error?.message || "Erreur lors de l'enregistrement de la facture";
+      setSubmitError(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
