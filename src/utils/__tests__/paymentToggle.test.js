@@ -39,5 +39,6 @@ describe('payment toggle rules', () => {
   it('exposes the expected payment catalog', () => {
     expect(PAYMENT_OPTIONS.length).toBeGreaterThanOrEqual(5);
     expect(PAYMENT_OPTIONS.some((p) => p.id === 'USA')).toBe(true);
+    expect(PAYMENT_OPTIONS.some((p) => p.id === 'Maroc')).toBe(true);
   });
 });

@@ -35,6 +35,13 @@ export const PAYMENT_OPTIONS = [
     details: 'Laouali Abdou Aminou - IBAN: NE58 NE03 8010 0100 1614 9100 0788',
   },
   {
+    id: 'Maroc',
+    label: 'Virement bancaire Maroc (CIH)',
+    icon: '🇲🇦',
+    description: 'Virement bancaire CIH Bank',
+    details: 'MONSIEUR LAOUALI ABDOU AMINOU - IBAN: MA64 2308 1028 0746 8211 0061 0017',
+  },
+  {
     id: 'Maketou',
     label: 'Maketou',
     icon: '📱',
