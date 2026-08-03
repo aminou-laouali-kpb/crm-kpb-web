@@ -48,6 +48,17 @@ const PAYMENT_TEMPLATE_BLOCKS = {
       ['Domiciliation', 'Niamey - Bobiel, Commune I'],
     ],
   },
+  Maroc: {
+    title: '🇲🇦 Paiement par virement bancaire au Maroc:',
+    lines: [
+      ['Banque', 'CIH'],
+      ['Titulaire du compte', 'MONSIEUR LAOUALI ABDOU AMINOU'],
+      ['Numéro de compte', '2807468211006100'],
+      ['RIB', '230 810 2807468211006100 17'],
+      ['IBAN', 'MA64 2308 1028 0746 8211 0061 0017'],
+      ['Code SWIFT', 'CIHMMAMC'],
+    ],
+  },
   Maketou: {
     title: '📱 Maketou - Mobile Money:',
     lines: [
