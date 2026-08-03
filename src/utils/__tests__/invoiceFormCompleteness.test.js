@@ -38,4 +38,12 @@ describe('getMissingInvoiceFields', () => {
     expect(missing).toContain('Commercial');
     expect(missing).toContain('Date de la facture');
   });
+
+  it('does not require invoice number (server assigns globally)', () => {
+    const missing = getMissingInvoiceFields({
+      ...complete,
+      invoice: { number: '', date: '2026-08-02' },
+    });
+    expect(missing).not.toContain('Numéro de facture');
+  });
 });
