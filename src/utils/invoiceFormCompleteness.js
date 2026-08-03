@@ -38,7 +38,7 @@ export const getMissingInvoiceFields = ({
   if (!String(clientInfo.lastName || '').trim()) missing.push('Nom du client');
   if (!String(clientInfo.email || '').trim()) missing.push('Email du client');
   if (!String(clientInfo.whatsapp || '').trim()) missing.push('WhatsApp du client');
-  if (!String(invoice.number || '').trim()) missing.push('Numéro de facture');
+  // Invoice number is assigned server-side (global sequence) — preview is optional
   if (!String(invoice.date || '').trim()) missing.push('Date de la facture');
   if (!String(service || '').trim()) missing.push('Description du service');
   if (!(parseAmountInput(grandTotal) > 0)) missing.push('Montant total');
