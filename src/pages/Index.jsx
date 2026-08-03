@@ -10,7 +10,7 @@ import { templates } from "../utils/templateRegistry";
 import { FiEdit, FiTrash2 } from "react-icons/fi";
 import { toast } from "sonner";
 import { validateInvoiceData, sanitizeText } from '../utils/validation';
-import { generateSequentialInvoiceNumber, generateRandomInvoiceNumber } from '../utils/invoiceNumber';
+import { generateSequentialInvoiceNumber, generateRandomInvoiceNumber, isDuplicateInvoiceNumberError } from '../utils/invoiceNumber';
 import {
   getMissingInvoiceFields,
   parseAmountInput,
@@ -35,8 +35,10 @@ const Index = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const ensureInvoiceNumber = async (currentNumber) => {
-    if (String(currentNumber || '').trim()) return String(currentNumber).trim();
+  const ensureInvoiceNumber = async (currentNumber, { forceNew = false } = {}) => {
+    if (!forceNew && String(currentNumber || '').trim()) {
+      return String(currentNumber).trim();
+    }
     try {
       return await generateSequentialInvoiceNumber();
     } catch {
@@ -54,6 +56,8 @@ const Index = () => {
       let nextSalesRep = "";
       let nextTotal = '';
       let nextCurrency = "XOF";
+      // After a successful create the previous number must never be reused
+      let mustAllocateNumber = true;
 
       if (savedFormData) {
         try {
@@ -80,13 +84,16 @@ const Index = () => {
             ? String(parsedData.grandTotal)
             : '';
           nextCurrency = parsedData.selectedCurrency || "XOF";
+          mustAllocateNumber = !!parsedData.invoiceNumberConsumed || !nextInvoice.number;
         } catch {
           // ignore corrupt session data
         }
       }
 
-      // Always guarantee an invoice number (session restore often left it empty)
-      nextInvoice.number = await ensureInvoiceNumber(nextInvoice.number);
+      nextInvoice.number = await ensureInvoiceNumber(
+        mustAllocateNumber ? '' : nextInvoice.number,
+        { forceNew: mustAllocateNumber }
+      );
       if (!nextInvoice.date) nextInvoice.date = todayISODate();
 
       setClientInfo(nextClient);
@@ -158,11 +165,9 @@ const Index = () => {
 
     setSubmitting(true);
 
-    let invoiceNumber = String(invoice.number || '').trim();
-    if (!invoiceNumber) {
-      invoiceNumber = await ensureInvoiceNumber('');
-      setInvoice((prev) => ({ ...prev, number: invoiceNumber }));
-    }
+    // Always take a fresh unique number at submit time (avoids session reuse collisions)
+    let invoiceNumber = await ensureInvoiceNumber('', { forceNew: true });
+    setInvoice((prev) => ({ ...prev, number: invoiceNumber }));
 
     const validation = validateInvoiceData({
       firstName: clientInfo.firstName,
@@ -186,51 +191,68 @@ const Index = () => {
       const validated = validation.data;
 
       let data;
-      try {
-        data = await createInvoice.mutateAsync({
-          invoice_number: validated.invoiceNumber,
-          invoice_date: validated.invoiceDate,
-          client_first_name: validated.firstName,
-          client_last_name: validated.lastName,
-          client_email: validated.email,
-          client_whatsapp: validated.whatsapp,
-          service_description: sanitizeText(validated.service),
-          amount: validated.amount,
-          currency: selectedCurrency,
-          payment_type: (Array.isArray(selectedPayments) ? selectedPayments : ['USA']).join(','),
-          sales_representative: salesRep,
-          template_number: templateNumber,
-          status: 'generated'
-        });
-      } catch (invoiceError) {
-        const raw = invoiceError?.message || '';
-        if (/invalid input value for enum sales_rep/i.test(raw)) {
-          throw new Error(
-            `Le commercial « ${salesRep} » n'est pas reconnu en base. Contactez un admin pour mettre à jour la liste.`
-          );
+      let lastError = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            invoiceNumber = await ensureInvoiceNumber('', { forceNew: true });
+            setInvoice((prev) => ({ ...prev, number: invoiceNumber }));
+          }
+          data = await createInvoice.mutateAsync({
+            invoice_number: attempt === 0 ? validated.invoiceNumber : invoiceNumber,
+            invoice_date: validated.invoiceDate,
+            client_first_name: validated.firstName,
+            client_last_name: validated.lastName,
+            client_email: validated.email,
+            client_whatsapp: validated.whatsapp,
+            service_description: sanitizeText(validated.service),
+            amount: validated.amount,
+            currency: selectedCurrency,
+            payment_type: (Array.isArray(selectedPayments) ? selectedPayments : ['USA']).join(','),
+            sales_representative: salesRep,
+            template_number: templateNumber,
+            status: 'generated'
+          });
+          lastError = null;
+          break;
+        } catch (invoiceError) {
+          lastError = invoiceError;
+          const raw = invoiceError?.message || '';
+          if (isDuplicateInvoiceNumberError(invoiceError) && attempt < 2) {
+            continue;
+          }
+          if (/invalid input value for enum sales_rep/i.test(raw)) {
+            throw new Error(
+              `Le commercial « ${salesRep} » n'est pas reconnu en base. Contactez un admin pour mettre à jour la liste.`
+            );
+          }
+          if (/accès refusé|row-level security/i.test(raw)) {
+            throw new Error(
+              "Accès refusé : votre compte n'a pas les droits nécessaires. Contactez un admin."
+            );
+          }
+          throw invoiceError;
         }
-        if (/accès refusé|row-level security/i.test(raw)) {
-          throw new Error(
-            "Accès refusé : votre compte n'a pas les droits nécessaires. Contactez un admin."
-          );
-        }
-        throw invoiceError;
       }
+      if (lastError) throw lastError;
 
       toast.success("Facture enregistrée");
 
+      const usedNumber = data?.invoice_number || invoiceNumber;
       const formData = {
         clientInfo: {
           ...clientInfo,
           whatsapp: validated.whatsapp,
         },
-        invoice: { ...invoice, number: validated.invoiceNumber },
+        invoice: { ...invoice, number: usedNumber },
         service,
         paymentInfo: { types: selectedPayments },
         selectedPayments,
         salesRep,
         grandTotal: amountValue,
         selectedCurrency,
+        // Prevent reusing this number when coming back to the generator
+        invoiceNumberConsumed: true,
       };
       try {
         sessionStorage.setItem("formData", JSON.stringify(formData));
@@ -241,7 +263,9 @@ const Index = () => {
         state: { formData, selectedTemplate: templateNumber, invoiceId: data.id },
       });
     } catch (error) {
-      const msg = error?.message || "Erreur lors de l'enregistrement de la facture";
+      const msg = isDuplicateInvoiceNumberError(error)
+        ? "Ce numéro de facture existe déjà. Réessayez — un nouveau numéro sera attribué."
+        : (error?.message || "Erreur lors de l'enregistrement de la facture");
       setSubmitError(msg);
       toast.error(msg);
     } finally {
