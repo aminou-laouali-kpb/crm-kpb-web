@@ -398,6 +398,24 @@ export type Database = {
           },
         ]
       }
+      invoice_sequences: {
+        Row: {
+          last_number: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          last_number?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number
@@ -616,6 +634,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_next_invoice_number: { Args: { p_year: number }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -623,6 +642,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      peek_next_invoice_number: { Args: { p_year?: number }; Returns: string }
       update_contract_request_client_info: {
         Args: { p_fields: Json; p_token: string }
         Returns: Json
