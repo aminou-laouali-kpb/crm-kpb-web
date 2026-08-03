@@ -197,7 +197,7 @@ const Index = () => {
           service_description: sanitizeText(validated.service),
           amount: validated.amount,
           currency: selectedCurrency,
-          payment_type: selectedPayments.join(','),
+          payment_type: (Array.isArray(selectedPayments) ? selectedPayments : ['USA']).join(','),
           sales_representative: salesRep,
           template_number: templateNumber,
           status: 'generated'
@@ -306,7 +306,11 @@ const Index = () => {
 
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           <div className="w-full md:w-1/2 glass rounded-2xl p-6 md:p-8 shadow-lg">
-            <form>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
               <ClientInfoSection
                 clientInfo={clientInfo}
                 handleInputChange={handleInputChange(setClientInfo)}
@@ -355,8 +359,11 @@ const Index = () => {
               </div>
 
               <PaymentTypeSection
-                selectedPayments={selectedPayments}
-                handlePaymentToggle={setSelectedPayments}
+                selectedPayments={Array.isArray(selectedPayments) ? selectedPayments : ['USA']}
+                handlePaymentToggle={(next) => {
+                  const safe = Array.isArray(next) && next.length ? next : ['USA'];
+                  setSelectedPayments(safe);
+                }}
               />
 
               <SalesRepSection salesRep={salesRep} handleSalesRepChange={setSalesRep} />
