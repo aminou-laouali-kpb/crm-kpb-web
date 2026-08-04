@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.assign_invoice_number_before_insert() FROM PUBLIC, anon, authenticated;
