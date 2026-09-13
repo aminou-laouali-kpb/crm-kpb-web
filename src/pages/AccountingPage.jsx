@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
   FileText,
   FileDown,
+  CalendarPlus,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
@@ -29,6 +30,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import ExpensesSection from '../components/accounting/ExpensesSection';
 import PlannedIncomeSection from '../components/accounting/PlannedIncomeSection';
 import BudgetsSection from '../components/accounting/BudgetsSection';
+import ExpenseTemplateSection from '../components/accounting/ExpenseTemplateSection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MONTHS, getAvailableYears } from '@/constants/months';
 import { useAccountingData } from '@/hooks/useAccountingData';
@@ -234,7 +236,7 @@ const AccountingPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full mb-6 ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full mb-6 ${isAdmin ? 'grid-cols-5' : 'grid-cols-2'}`}>
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Wallet className="h-4 w-4" />
             <span className="hidden sm:inline">Vue d'ensemble</span>
@@ -253,6 +255,12 @@ const AccountingPage = () => {
             <TabsTrigger value="budgets" className="flex items-center gap-1">
               <PiggyBank className="h-4 w-4" />
               <span className="hidden sm:inline">Budgets</span>
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="template" className="flex items-center gap-1">
+              <CalendarPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Modèle</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -437,6 +445,15 @@ const AccountingPage = () => {
             selectedMonth={selectedMonth} 
             selectedYear={selectedYear}
             expenses={expenses}
+          />
+        </TabsContent>
+
+        {/* Template Tab */}
+        <TabsContent value="template">
+          <ExpenseTemplateSection
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onDataChange={refetch}
           />
         </TabsContent>
       </Tabs>
