@@ -348,6 +348,62 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_templates: {
+        Row: {
+          active_from: string
+          active_to: string | null
+          amount: number
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          day_of_month: number
+          description: string
+          id: string
+          is_active: boolean
+          months_pattern: number[] | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          active_from?: string
+          active_to?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number
+          description: string
+          id?: string
+          is_active?: boolean
+          months_pattern?: number[] | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active_from?: string
+          active_to?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number
+          description?: string
+          id?: string
+          is_active?: boolean
+          months_pattern?: number[] | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_templates_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           admin_id: string

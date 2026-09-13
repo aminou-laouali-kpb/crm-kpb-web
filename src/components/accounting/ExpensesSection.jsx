@@ -33,6 +33,7 @@ import { Plus, Edit2, Trash2, Check, Clock } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { supabase } from "@/integrations/supabase/client";
 import { expenseSchema, validateAccountingData } from '../../utils/accountingValidation';
+import ApplyTemplateButton from './ApplyTemplateButton';
 
 const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const [expenses, setExpenses] = useState([]);
@@ -220,7 +221,15 @@ const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
       </div>
 
       {/* Add Button */}
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <ApplyTemplateButton
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          onApplied={() => {
+            fetchData();
+            onDataChange?.();
+          }}
+        />
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) resetForm();
