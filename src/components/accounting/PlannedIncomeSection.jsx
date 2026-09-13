@@ -45,7 +45,7 @@ const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => 
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    due_date: new Date().toISOString().split('T')[0],
+    due_date: todayLocalDateStr(),
     status: 'pending',
     source: '',
     is_recurring: false,
@@ -204,7 +204,7 @@ const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => 
     setFormData({
       description: '',
       amount: '',
-      due_date: new Date().toISOString().split('T')[0],
+      due_date: todayLocalDateStr(),
       status: 'pending',
       source: '',
       is_recurring: false,

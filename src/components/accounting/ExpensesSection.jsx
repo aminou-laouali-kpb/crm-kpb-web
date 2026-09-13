@@ -46,7 +46,7 @@ const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    expense_date: new Date().toISOString().split('T')[0],
+    expense_date: todayLocalDateStr(),
     category_id: '',
     status: 'pending',
     payment_method: '',
@@ -185,7 +185,7 @@ const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
     setFormData({
       description: '',
       amount: '',
-      expense_date: new Date().toISOString().split('T')[0],
+      expense_date: todayLocalDateStr(),
       category_id: '',
       status: 'pending',
       payment_method: '',
