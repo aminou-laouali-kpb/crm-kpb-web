@@ -34,6 +34,7 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { supabase } from "@/integrations/supabase/client";
 import { expenseSchema, validateAccountingData } from '../../utils/accountingValidation';
 import ApplyTemplateButton from './ApplyTemplateButton';
+import { getMonthDateStrings, todayLocalDateStr } from '@/utils/dateRange';
 
 const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const [expenses, setExpenses] = useState([]);
@@ -59,11 +60,8 @@ const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const monthIndex = parseInt(selectedMonth) - 1;
-      const year = parseInt(selectedYear);
-      const startDate = new Date(year, monthIndex, 1);
-      const endDate = new Date(year, monthIndex + 1, 0);
+
+      const { startDateStr, endDateStr } = getMonthDateStrings(selectedMonth, selectedYear);
 
       // Fetch categories
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -78,8 +76,8 @@ const ExpensesSection = ({ selectedMonth, selectedYear, onDataChange }) => {
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('*, expense_categories(name, color, icon)')
-        .gte('expense_date', startDate.toISOString().split('T')[0])
-        .lte('expense_date', endDate.toISOString().split('T')[0])
+        .gte('expense_date', startDateStr)
+        .lte('expense_date', endDateStr)
         .order('expense_date', { ascending: false });
 
       if (expensesError) throw expensesError;
