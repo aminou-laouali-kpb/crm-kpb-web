@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { buildMonthlyPreview, applyMonthlyTemplate } from '@/utils/expenseTemplates';
 import { getMonthLabel } from '@/constants/months';
+import { getMonthDateStrings } from '@/utils/dateRange';
 
 const ApplyTemplateButton = ({ selectedMonth, selectedYear, onApplied, variant = 'outline' }) => {
   const [open, setOpen] = useState(false);
@@ -27,9 +28,7 @@ const ApplyTemplateButton = ({ selectedMonth, selectedYear, onApplied, variant =
     setOpen(true);
     setLoading(true);
     try {
-      const monthIndex = month - 1;
-      const startDate = new Date(year, monthIndex, 1).toISOString().split('T')[0];
-      const endDate = new Date(year, monthIndex + 1, 0).toISOString().split('T')[0];
+      const { startDateStr, endDateStr } = getMonthDateStrings(month, year);
 
       const [{ data: templates, error: tplError }, { data: existing, error: expError }] =
         await Promise.all([
@@ -37,8 +36,8 @@ const ApplyTemplateButton = ({ selectedMonth, selectedYear, onApplied, variant =
           supabase
             .from('expenses')
             .select('description')
-            .gte('expense_date', startDate)
-            .lte('expense_date', endDate),
+            .gte('expense_date', startDateStr)
+            .lte('expense_date', endDateStr),
         ]);
 
       if (tplError) throw tplError;

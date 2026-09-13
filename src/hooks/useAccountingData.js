@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toLocalDateStr } from '@/utils/dateRange';
 
 export const useAccountingData = (startDate, endDate, enabled = true) => {
   const startIso = startDate?.toISOString();
   const endIso = endDate?.toISOString();
-  const startDateStr = startDate?.toISOString().split('T')[0];
-  const endDateStr = endDate?.toISOString().split('T')[0];
+  // Local calendar day bounds (toISOString would shift the day in UTC+1)
+  const startDateStr = startDate ? toLocalDateStr(startDate) : undefined;
+  const endDateStr = endDate ? toLocalDateStr(endDate) : undefined;
 
   const invoicesQuery = useQuery({
     queryKey: ['accounting-invoices', startIso, endIso],

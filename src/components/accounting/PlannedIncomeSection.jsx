@@ -34,6 +34,7 @@ import { Plus, Edit2, Trash2, Check, Clock, AlertTriangle, RefreshCw } from 'luc
 import { formatCurrency } from '../../utils/formatCurrency';
 import { supabase } from "@/integrations/supabase/client";
 import { plannedIncomeSchema, validateAccountingData } from '../../utils/accountingValidation';
+import { getMonthDateStrings, todayLocalDateStr } from '@/utils/dateRange';
 
 const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => {
   const [incomes, setIncomes] = useState([]);
@@ -44,7 +45,7 @@ const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => 
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    due_date: new Date().toISOString().split('T')[0],
+    due_date: todayLocalDateStr(),
     status: 'pending',
     source: '',
     is_recurring: false,
@@ -59,23 +60,20 @@ const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => 
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const monthIndex = parseInt(selectedMonth) - 1;
-      const year = parseInt(selectedYear);
-      const startDate = new Date(year, monthIndex, 1);
-      const endDate = new Date(year, monthIndex + 1, 0);
+
+      const { startDateStr, endDateStr } = getMonthDateStrings(selectedMonth, selectedYear);
 
       const { data, error } = await supabase
         .from('planned_income')
         .select('*')
-        .gte('due_date', startDate.toISOString().split('T')[0])
-        .lte('due_date', endDate.toISOString().split('T')[0])
+        .gte('due_date', startDateStr)
+        .lte('due_date', endDateStr)
         .order('due_date', { ascending: true });
 
       if (error) throw error;
-      
+
       // Auto-update overdue status
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalDateStr();
       const updatedIncomes = (data || []).map(income => {
         if (income.status === 'pending' && income.due_date < today) {
           return { ...income, status: 'overdue' };
@@ -206,7 +204,7 @@ const PlannedIncomeSection = ({ selectedMonth, selectedYear, onDataChange }) => 
     setFormData({
       description: '',
       amount: '',
-      due_date: new Date().toISOString().split('T')[0],
+      due_date: todayLocalDateStr(),
       status: 'pending',
       source: '',
       is_recurring: false,
