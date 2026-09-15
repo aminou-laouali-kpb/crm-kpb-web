@@ -2,22 +2,23 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import RouteErrorBoundary from '@/components/layout/RouteErrorBoundary';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
-const TemplatePage = lazy(() => import('./pages/TemplatePage'));
-const CRMPage = lazy(() => import('./pages/CRMPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const AccountingPage = lazy(() => import('./pages/AccountingPage'));
-const ActivityLogsPage = lazy(() => import('./pages/ActivityLogsPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const ClientsPage = lazy(() => import('./pages/ClientsPage'));
-const ContractsPage = lazy(() => import('./pages/ContractsPage'));
-const ContractSignPage = lazy(() => import('./pages/ContractSignPage'));
-const Index = lazy(() => import('./pages/Index'));
-const AuthPage = lazy(() => import('./pages/AuthPage'));
+const TemplatePage = lazyWithRetry(() => import('./pages/TemplatePage'), 'TemplatePage');
+const CRMPage = lazyWithRetry(() => import('./pages/CRMPage'), 'CRMPage');
+const DashboardPage = lazyWithRetry(() => import('./pages/DashboardPage'), 'DashboardPage');
+const ReportsPage = lazyWithRetry(() => import('./pages/ReportsPage'), 'ReportsPage');
+const AccountingPage = lazyWithRetry(() => import('./pages/AccountingPage'), 'AccountingPage');
+const ActivityLogsPage = lazyWithRetry(() => import('./pages/ActivityLogsPage'), 'ActivityLogsPage');
+const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage'), 'SettingsPage');
+const ClientsPage = lazyWithRetry(() => import('./pages/ClientsPage'), 'ClientsPage');
+const ContractsPage = lazyWithRetry(() => import('./pages/ContractsPage'), 'ContractsPage');
+const ContractSignPage = lazyWithRetry(() => import('./pages/ContractSignPage'), 'ContractSignPage');
+const Index = lazyWithRetry(() => import('./pages/Index'), 'Index');
+const AuthPage = lazyWithRetry(() => import('./pages/AuthPage'), 'AuthPage');
 
 const queryClient = new QueryClient({
   defaultOptions: {
