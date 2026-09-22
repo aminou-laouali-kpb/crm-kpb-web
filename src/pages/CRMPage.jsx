@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature, Copy, Loader2 } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
+import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import { MONTHS, getAvailableYears } from '@/constants/months';
@@ -66,6 +67,8 @@ const CRMPage = () => {
   const PAGE_SIZE = 50;
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
@@ -372,35 +375,51 @@ const CRMPage = () => {
 
   const handleDeleteClick = (invoice) => {
     setSelectedInvoice(invoice);
+    setDeleteReason('');
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
+    if (!selectedInvoice) return;
+    setDeleteSubmitting(true);
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      
-      // Log before delete
-      try {
-        await supabase.rpc('create_audit_log', {
-          p_action: 'DELETE',
-          p_table_name: 'invoices',
-          p_record_id: selectedInvoice.id,
-          p_metadata: { invoice_number: selectedInvoice.invoice_number, amount: selectedInvoice.amount }
+      if (isAdmin) {
+        try {
+          await supabase.rpc('create_audit_log', {
+            p_action: 'DELETE',
+            p_table_name: 'invoices',
+            p_record_id: selectedInvoice.id,
+            p_metadata: { invoice_number: selectedInvoice.invoice_number, amount: selectedInvoice.amount }
+          });
+        } catch (e) { /* non-critical */ }
+
+        const { error } = await supabase
+          .from('invoices')
+          .delete()
+          .eq('id', selectedInvoice.id);
+
+        if (error) throw error;
+        toast.success("Facture supprimée avec succès");
+      } else {
+        if (!deleteReason.trim()) {
+          toast.error("Merci d'indiquer le motif de la suppression");
+          setDeleteSubmitting(false);
+          return;
+        }
+        const { error } = await supabase.rpc('request_invoice_deletion', {
+          p_invoice_id: selectedInvoice.id,
+          p_reason: deleteReason.trim(),
         });
-      } catch (e) { /* non-critical */ }
-
-      const { error } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', selectedInvoice.id);
-
-      if (error) throw error;
-
-      toast.success("Facture supprimée avec succès");
+        if (error) throw error;
+        toast.success("Demande envoyée à l'administrateur pour validation");
+      }
       setDeleteDialogOpen(false);
-      fetchInvoices();
+      setDeleteReason('');
+      refetch();
     } catch (error) {
-      toast.error("Erreur lors de la suppression de la facture");
+      toast.error(error?.message || "Erreur lors de la suppression de la facture");
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -873,16 +892,34 @@ const CRMPage = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isAdmin ? 'Confirmer la suppression' : 'Demander la suppression'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer la facture {selectedInvoice?.invoice_number} ?
-              Cette action est irréversible.
+              {isAdmin
+                ? `Êtes-vous sûr de vouloir supprimer la facture ${selectedInvoice?.invoice_number || ''} ? Cette action est irréversible.`
+                : `La facture ${selectedInvoice?.invoice_number || ''} ne sera supprimée qu'après validation de l'administrateur. Indiquez le motif.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {!isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="delete-reason">Motif de la demande *</Label>
+              <Input
+                id="delete-reason"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Ex : facture créée en double"
+              />
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Supprimer
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDeleteConfirm(); }}
+              disabled={deleteSubmitting || (!isAdmin && !deleteReason.trim())}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isAdmin ? 'Supprimer' : 'Envoyer la demande'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

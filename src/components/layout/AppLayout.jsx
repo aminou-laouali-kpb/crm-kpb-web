@@ -12,6 +12,7 @@ import {
   X,
   Settings,
   FileSignature,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountingAccess } from '@/hooks/useAccountingAccess';
@@ -44,6 +45,7 @@ const AppLayout = ({ children, title, subtitle }) => {
       : []),
     ...(isAdmin
       ? [
+          { to: '/deletion-requests', label: 'Suppressions', icon: Trash2 },
           { to: '/activity-logs', label: 'Logs', icon: ClipboardList },
           { to: '/settings', label: 'Paramètres', icon: Settings },
         ]
