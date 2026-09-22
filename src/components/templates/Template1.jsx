@@ -2,6 +2,8 @@ import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
 import PaymentDetailsBlock from '../PaymentDetailsBlock';
+import InvoicePaymentWarning from '../InvoicePaymentWarning';
+import InvoiceVerificationQR from '../InvoiceVerificationQR';
 import kpbLogo from '../../assets/kpb-logo.png';
 import kpbStamp from '../../assets/kpb-stamp.png';
 
