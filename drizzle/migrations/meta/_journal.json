@@ -15,6 +15,13 @@
       "when": 1790079333848,
       "tag": "0001_restrict_permissive_select_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790085469215,
+      "tag": "0002_invoice_deletion_requests",
+      "breakpoints": true
     }
   ]
 }

@@ -454,6 +454,48 @@ export type Database = {
           },
         ]
       }
+      invoice_deletion_requests: {
+        Row: {
+          id: string
+          invoice_id: string
+          invoice_number: string
+          invoice_snapshot: Json
+          reason: string
+          requested_at: string
+          requested_by: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          invoice_number: string
+          invoice_snapshot?: Json
+          reason: string
+          requested_at?: string
+          requested_by: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          invoice_number?: string
+          invoice_snapshot?: Json
+          reason?: string
+          requested_at?: string
+          requested_by?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       invoice_sequences: {
         Row: {
           last_number: number
@@ -699,6 +741,14 @@ export type Database = {
         Returns: boolean
       }
       peek_next_invoice_number: { Args: { p_year?: number }; Returns: string }
+      request_invoice_deletion: {
+        Args: { p_invoice_id: string; p_reason: string }
+        Returns: Json
+      }
+      review_invoice_deletion: {
+        Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
       update_contract_request_client_info: {
         Args: { p_fields: Json; p_token: string }
         Returns: Json
