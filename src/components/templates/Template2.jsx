@@ -2,6 +2,8 @@ import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
 import PaymentDetailsBlock from '../PaymentDetailsBlock';
+import InvoicePaymentWarning from '../InvoicePaymentWarning';
+import InvoiceVerificationQR from '../InvoiceVerificationQR';
 import kpbLogo from '../../assets/kpb-logo.png';
 import kpbStamp from '../../assets/kpb-stamp.png';
 
@@ -71,15 +73,21 @@ const Template2 = ({ data = {} }) => {
           </div>
         </div>
 
+        <div className="mt-4">
+          <InvoicePaymentWarning />
+        </div>
+
         {/* Footer */}
         <div className="mt-4 text-center text-sm text-gray-600">
-          <div className="flex justify-center mb-2">
+          <div className="flex items-center justify-center gap-6 mb-2 flex-wrap">
             <img src={kpbStamp} alt="Cachet KPB Education" className="h-24" />
+            <InvoiceVerificationQR invoiceNumber={invoice.number} />
           </div>
           <p>Merci pour votre confiance</p>
           <p className="font-semibold">KPB Education - Votre partenaire éducatif</p>
           <p className="text-xs mt-2">SIRET: 851 365 908 00025 - 8 Rue André Vasseur, 31200 Toulouse</p>
         </div>
+
       </div>
     </BaseTemplate>
   );

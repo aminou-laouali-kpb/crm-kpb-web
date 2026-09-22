@@ -20,6 +20,7 @@ const ContractsPage = lazyWithRetry(() => import('./pages/ContractsPage'), 'Cont
 const ContractSignPage = lazyWithRetry(() => import('./pages/ContractSignPage'), 'ContractSignPage');
 const Index = lazyWithRetry(() => import('./pages/Index'), 'Index');
 const AuthPage = lazyWithRetry(() => import('./pages/AuthPage'), 'AuthPage');
+const VerifyInvoicePage = lazyWithRetry(() => import('./pages/VerifyInvoicePage'), 'VerifyInvoicePage');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,8 @@ const App = () => (
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
             <Routes>
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/verifier-facture" element={<VerifyInvoicePage />} />
+              <Route path="/verify" element={<VerifyInvoicePage />} />
               <Route path="/contrat/:token" element={<ContractSignPage />} />
               <Route path="/sign/:token" element={<ContractSignPage />} />
               <Route element={<ProtectedRoute />}>

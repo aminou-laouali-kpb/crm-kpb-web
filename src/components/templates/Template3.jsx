@@ -2,6 +2,8 @@ import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
 import PaymentDetailsBlock from '../PaymentDetailsBlock';
+import InvoicePaymentWarning from '../InvoicePaymentWarning';
+import InvoiceVerificationQR from '../InvoiceVerificationQR';
 import kpbLogo from '../../assets/kpb-logo.png';
 import kpbStamp from '../../assets/kpb-stamp.png';
 
@@ -84,10 +86,13 @@ const Template3 = ({ data = {} }) => {
           </div>
         </div>
 
+        <InvoicePaymentWarning />
+
         {/* Footer */}
         <div className="mt-4 pt-3 border-t text-center text-xs text-gray-500">
-          <div className="flex justify-center mb-2">
+          <div className="flex items-center justify-center gap-6 mb-2 flex-wrap">
             <img src={kpbStamp} alt="Cachet KPB Education" className="h-24" />
+            <InvoiceVerificationQR invoiceNumber={invoice.number} />
           </div>
           <p>Merci de votre confiance et de votre paiement rapide</p>
           <p className="font-semibold mt-1">KPB Education © 2025 - Tous droits réservés</p>
