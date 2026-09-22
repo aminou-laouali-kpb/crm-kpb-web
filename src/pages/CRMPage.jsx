@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature, Copy, Loader2 } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
+import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import { MONTHS, getAvailableYears } from '@/constants/months';
