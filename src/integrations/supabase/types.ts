@@ -762,6 +762,7 @@ export type Database = {
         }
         Returns: string
       }
+      verify_invoice: { Args: { p_invoice_number: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "sales_rep" | "comptable" | "commercial"
