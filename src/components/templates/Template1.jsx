@@ -89,14 +89,18 @@ const Template1 = ({ data = {} }) => {
           </div>
         </div>
 
+        <InvoicePaymentWarning />
+
         {/* Footer */}
         <div className="mt-4 text-center text-sm text-gray-600 border-t pt-3">
-          <div className="flex justify-center mb-2">
+          <div className="flex items-center justify-center gap-6 mb-2 flex-wrap">
             <img src={kpbStamp} alt="Cachet KPB Education" className="h-24" />
+            <InvoiceVerificationQR invoiceNumber={invoice.number} />
           </div>
           <p>Merci de votre confiance - KPB Education</p>
           <p className="text-xs mt-2">SIRET: 851 365 908 00025 - 8 Rue André Vasseur, 31200 Toulouse, France</p>
         </div>
+
       </div>
     </BaseTemplate>
   );
