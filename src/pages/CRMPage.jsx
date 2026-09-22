@@ -892,16 +892,34 @@ const CRMPage = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isAdmin ? 'Confirmer la suppression' : 'Demander la suppression'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer la facture {selectedInvoice?.invoice_number} ?
-              Cette action est irréversible.
+              {isAdmin
+                ? `Êtes-vous sûr de vouloir supprimer la facture ${selectedInvoice?.invoice_number || ''} ? Cette action est irréversible.`
+                : `La facture ${selectedInvoice?.invoice_number || ''} ne sera supprimée qu'après validation de l'administrateur. Indiquez le motif.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {!isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="delete-reason">Motif de la demande *</Label>
+              <Input
+                id="delete-reason"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Ex : facture créée en double"
+              />
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Supprimer
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDeleteConfirm(); }}
+              disabled={deleteSubmitting || (!isAdmin && !deleteReason.trim())}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isAdmin ? 'Supprimer' : 'Envoyer la demande'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
