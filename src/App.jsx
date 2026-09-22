@@ -13,6 +13,7 @@ const DashboardPage = lazyWithRetry(() => import('./pages/DashboardPage'), 'Dash
 const ReportsPage = lazyWithRetry(() => import('./pages/ReportsPage'), 'ReportsPage');
 const AccountingPage = lazyWithRetry(() => import('./pages/AccountingPage'), 'AccountingPage');
 const ActivityLogsPage = lazyWithRetry(() => import('./pages/ActivityLogsPage'), 'ActivityLogsPage');
+const DeletionRequestsPage = lazyWithRetry(() => import('./pages/DeletionRequestsPage'), 'DeletionRequestsPage');
 const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage'), 'SettingsPage');
 const ClientsPage = lazyWithRetry(() => import('./pages/ClientsPage'), 'ClientsPage');
 const ContractsPage = lazyWithRetry(() => import('./pages/ContractsPage'), 'ContractsPage');
@@ -50,6 +51,7 @@ const App = () => (
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/accounting" element={<AccountingPage />} />
                 <Route path="/activity-logs" element={<ActivityLogsPage />} />
+                <Route path="/deletion-requests" element={<DeletionRequestsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
             </Routes>
