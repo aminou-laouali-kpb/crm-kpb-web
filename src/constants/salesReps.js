@@ -2,7 +2,6 @@
 export const DEFAULT_SALES_REPS = [
   { name: 'Josphin', active: true },
   { name: 'Nadia', active: true },
-  { name: 'Donald', active: true },
   { name: 'Richard', active: true },
 ];
 
