@@ -19,6 +19,7 @@ import WhatsAppLink from '@/components/WhatsAppLink';
 import InvoiceStatusStepper from '@/components/InvoiceStatusStepper';
 import ClientHistoryPanel from '@/components/ClientHistoryPanel';
 import { buildInvoiceWhatsAppMessage } from '@/utils/whatsappUtils';
+import { installmentFormSchema } from '@/utils/installments';
 import {
   Select,
   SelectContent,
@@ -74,6 +75,8 @@ const CRMPage = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [receiptFile, setReceiptFile] = useState(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [isPartial, setIsPartial] = useState(false);
+  const [partialForm, setPartialForm] = useState({ total_amount: '', remaining_amount: '', due_date: '' });
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const sendContract = useSendContractFromInvoice();
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
@@ -162,6 +165,15 @@ const CRMPage = () => {
       toast.error("Veuillez télécharger le reçu de paiement");
       return;
     }
+    let partialData = null;
+    if (isPartial) {
+      const parsed = installmentFormSchema.safeParse(partialForm);
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0]?.message || 'Informations de tranche invalides');
+        return;
+      }
+      partialData = parsed.data;
+    }
     
     setUploadingReceipt(true);
     try {
@@ -188,15 +200,37 @@ const CRMPage = () => {
         
       if (error) throw error;
 
+      if (partialData) {
+        const inv = pendingStatusChange.invoice || invoices.find((i) => i.id === pendingStatusChange.invoiceId) || {};
+        const { data: { user: me } } = await supabase.auth.getUser();
+        const { error: instError } = await supabase.from('payment_installments').insert({
+          invoice_id: pendingStatusChange.invoiceId,
+          client_id: inv.client_id || null,
+          owner_user_id: inv.user_id || me?.id,
+          sales_rep: inv.sales_representative || 'N/A',
+          client_name: `${inv.client_first_name || ''} ${inv.client_last_name || ''}`.trim() || 'Client',
+          client_whatsapp: inv.client_whatsapp || null,
+          service: inv.service_description || '',
+          currency: inv.currency || 'XOF',
+          total_amount: partialData.total_amount === '' ? null : partialData.total_amount ?? null,
+          remaining_amount: partialData.remaining_amount,
+          due_date: partialData.due_date,
+        });
+        if (instError) toast.error("Paiement enregistré, mais l'échéance n'a pas pu être créée");
+        else toast.success('Prochaine tranche ajoutée aux relances');
+      }
+
       // Log the action
       try {
         await supabase.rpc('create_audit_log', {
           p_action: 'STATUS_CHANGE',
           p_table_name: 'invoices',
           p_record_id: pendingStatusChange.invoiceId,
-          p_metadata: { new_status: 'paid', payment_method: selectedPaymentMethod, has_receipt: true }
+          p_metadata: { new_status: 'paid', payment_method: selectedPaymentMethod, has_receipt: true, partial: !!partialData }
         });
       } catch (e) { /* non-critical */ }
+      setIsPartial(false);
+      setPartialForm({ total_amount: '', remaining_amount: '', due_date: '' });
       
       toast.success("Facture marquée comme payée avec reçu");
       setPaymentDialogOpen(false);
@@ -998,6 +1032,33 @@ const CRMPage = () => {
                 )}
               </label>
             </div>
+          </div>
+
+          {/* Partial payment / installment */}
+          <div className="border-t border-border pt-4 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input type="checkbox" checked={isPartial} onChange={(e) => setIsPartial(e.target.checked)} className="h-4 w-4" />
+              Paiement partiel (tranche) — il reste un solde à encaisser
+            </label>
+            {isPartial && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs">Total du service</Label>
+                  <Input type="number" min="0" value={partialForm.total_amount}
+                    onChange={(e) => setPartialForm({ ...partialForm, total_amount: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Montant restant *</Label>
+                  <Input type="number" min="0" value={partialForm.remaining_amount}
+                    onChange={(e) => setPartialForm({ ...partialForm, remaining_amount: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Date prévue *</Label>
+                  <Input type="date" value={partialForm.due_date}
+                    onChange={(e) => setPartialForm({ ...partialForm, due_date: e.target.value })} />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
