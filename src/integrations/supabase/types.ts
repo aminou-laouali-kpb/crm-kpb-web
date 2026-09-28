@@ -454,6 +454,44 @@ export type Database = {
           },
         ]
       }
+      installment_reminders: {
+        Row: {
+          channel: string
+          comment: string | null
+          created_at: string
+          id: string
+          installment_id: string
+          next_due_date: string | null
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          installment_id: string
+          next_due_date?: string | null
+          user_id?: string
+        }
+        Update: {
+          channel?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          installment_id?: string
+          next_due_date?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installment_reminders_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_installments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_deletion_requests: {
         Row: {
           id: string
@@ -587,6 +625,96 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_installments: {
+        Row: {
+          client_id: string | null
+          client_name: string
+          client_whatsapp: string | null
+          closed_at: string | null
+          closed_invoice_id: string | null
+          closed_reason: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string
+          id: string
+          invoice_id: string | null
+          last_reminder_at: string | null
+          notes: string | null
+          owner_user_id: string
+          remaining_amount: number
+          reminder_count: number
+          sales_rep: string
+          service: string
+          status: string
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_name: string
+          client_whatsapp?: string | null
+          closed_at?: string | null
+          closed_invoice_id?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date: string
+          id?: string
+          invoice_id?: string | null
+          last_reminder_at?: string | null
+          notes?: string | null
+          owner_user_id: string
+          remaining_amount?: number
+          reminder_count?: number
+          sales_rep: string
+          service: string
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string
+          client_whatsapp?: string | null
+          closed_at?: string | null
+          closed_invoice_id?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string
+          id?: string
+          invoice_id?: string | null
+          last_reminder_at?: string | null
+          notes?: string | null
+          owner_user_id?: string
+          remaining_amount?: number
+          reminder_count?: number
+          sales_rep?: string
+          service?: string
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_installments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_installments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
