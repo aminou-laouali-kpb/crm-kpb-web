@@ -13,11 +13,14 @@ import {
   Settings,
   FileSignature,
   Trash2,
+  BellRing,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountingAccess } from '@/hooks/useAccountingAccess';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
+import { useDueInstallmentsCount } from '@/hooks/useInstallments';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import kpbLogo from '@/assets/kpb-logo.png';
 
 const navLinkClass = ({ isActive }) =>
@@ -31,11 +34,26 @@ const AppLayout = ({ children, title, subtitle }) => {
   const { user, signOut } = useAuth(false);
   const { hasAccess: hasAccountingAccess } = useAccountingAccess();
   const { isAdmin } = useAdminCheck();
+  const { data: dueCount = 0 } = useDueInstallmentsCount();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!dueCount || !user?.id) return;
+    const key = `kpb_inst_alert_${user.id}_${new Date().toDateString()}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch { /* ignore */ }
+    toast.warning(`${dueCount} relance(s) de tranche à faire aujourd'hui`, {
+      action: { label: 'Voir', onClick: () => { window.location.href = '/relances'; } },
+      duration: 10000,
+    });
+  }, [dueCount, user?.id]);
 
   const navItems = [
     { to: '/', label: 'Factures', icon: FileText },
     { to: '/crm', label: 'CRM', icon: Users },
+    { to: '/relances', label: 'Relances tranches', icon: BellRing, badge: dueCount },
     { to: '/clients', label: 'Clients', icon: Users },
     { to: '/contracts', label: 'Contrats', icon: FileSignature },
     { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -65,7 +83,7 @@ const AppLayout = ({ children, title, subtitle }) => {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, icon: Icon, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -73,7 +91,12 @@ const AppLayout = ({ children, title, subtitle }) => {
             onClick={() => setMobileOpen(false)}
           >
             <Icon className="h-4 w-4" />
-            {label}
+            <span className="flex-1">{label}</span>
+            {badge > 0 && (
+              <span className="min-w-5 h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+                {badge}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
