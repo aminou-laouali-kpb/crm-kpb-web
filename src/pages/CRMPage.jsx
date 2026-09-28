@@ -19,6 +19,7 @@ import WhatsAppLink from '@/components/WhatsAppLink';
 import InvoiceStatusStepper from '@/components/InvoiceStatusStepper';
 import ClientHistoryPanel from '@/components/ClientHistoryPanel';
 import { buildInvoiceWhatsAppMessage } from '@/utils/whatsappUtils';
+import { installmentFormSchema } from '@/utils/installments';
 import {
   Select,
   SelectContent,
