@@ -207,7 +207,7 @@ const Index = () => {
           service_description: isGuideUltime ? GUIDE_ULTIME.label : sanitizeText(validated.service),
           amount: isGuideUltime ? GUIDE_ULTIME.price : validated.amount,
           currency: saleCurrency,
-          product_code: isGuideUltime ? GUIDE_ULTIME.productCode : null,
+          ...(isGuideUltime ? { product_code: GUIDE_ULTIME.productCode } : {}),
           payment_type: (Array.isArray(selectedPayments) ? selectedPayments : ['USA']).join(','),
           sales_representative: salesRep,
           template_number: templateNumber,
