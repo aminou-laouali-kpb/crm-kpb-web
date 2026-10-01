@@ -63,12 +63,20 @@ describe('commissionCalculations', () => {
         product_code: GUIDE_ULTIME.productCode,
         last_status_change: '2026-06-17T00:00:00Z',
       },
+      {
+        sales_representative: 'Richard',
+        status: 'paid',
+        amount: 200000,
+        payment_type: 'France',
+        last_status_change: '2026-06-18T00:00:00Z',
+      },
     ];
     const periodDates = {
       startDate: new Date('2026-06-01'),
       endDate: new Date('2026-06-30T23:59:59'),
     };
-    const [rep] = calculateLeaderboardData(invoices, periodDates, [], ['Josphin']);
+    const data = calculateLeaderboardData(invoices, periodDates, [], ['Richard', 'Josphin']);
+    const rep = data.find((row) => row.name === 'Josphin');
 
     expect(rep.guideSalesCount).toBe(2);
     expect(rep.netSales).toBe(100000 + GUIDE_ULTIME.price * 0.95 + GUIDE_ULTIME.price);
@@ -95,12 +103,20 @@ describe('commissionCalculations', () => {
         product_code: GUIDE_ULTIME.productCode,
         last_status_change: '2026-06-11T00:00:00Z',
       },
+      {
+        sales_representative: 'Josphin',
+        status: 'paid',
+        amount: 900000,
+        payment_type: 'France',
+        last_status_change: '2026-06-12T00:00:00Z',
+      },
     ];
     const periodDates = {
       startDate: new Date('2026-06-01'),
       endDate: new Date('2026-06-30T23:59:59'),
     };
-    const [rep] = calculateLeaderboardData(invoices, periodDates, [], ['Nadia']);
+    const data = calculateLeaderboardData(invoices, periodDates, [], ['Josphin', 'Nadia']);
+    const rep = data.find((row) => row.name === 'Nadia');
 
     expect(rep.netSales).toBe(850000);
     expect(rep.commission.baseCommission).toBe(84100);
