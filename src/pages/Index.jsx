@@ -17,6 +17,7 @@ import {
   todayISODate,
 } from '../utils/invoiceFormCompleteness';
 import { useCreateInvoice } from '@/hooks/useInvoices';
+import { GUIDE_ULTIME } from '@/constants/products';
 import AppLayout from '@/components/layout/AppLayout';
 
 const emptyClient = { firstName: "", lastName: "", email: "", whatsapp: "" };
@@ -32,6 +33,7 @@ const Index = () => {
   const [selectedPayments, setSelectedPayments] = useState(["USA"]);
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState('');
+  const [isGuideUltime, setIsGuideUltime] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -53,6 +55,7 @@ const Index = () => {
       let nextSalesRep = "";
       let nextTotal = '';
       let nextCurrency = "XOF";
+      let nextGuide = false;
 
       if (savedFormData) {
         try {
@@ -80,9 +83,16 @@ const Index = () => {
             ? String(parsedData.grandTotal)
             : '';
           nextCurrency = parsedData.selectedCurrency || "XOF";
+          nextGuide = Boolean(parsedData.isGuideUltime);
         } catch {
           // ignore corrupt session data
         }
+      }
+
+      if (nextGuide) {
+        nextService = GUIDE_ULTIME.label;
+        nextTotal = String(GUIDE_ULTIME.price);
+        nextCurrency = GUIDE_ULTIME.currency;
       }
 
       // Preview only — the real number is assigned server-side on INSERT (global sequence)
@@ -96,6 +106,7 @@ const Index = () => {
       setSalesRep(nextSalesRep);
       setGrandTotal(nextTotal);
       setSelectedCurrency(nextCurrency);
+      setIsGuideUltime(nextGuide);
       hydratedRef.current = true;
     };
 
@@ -114,13 +125,14 @@ const Index = () => {
       salesRep,
       grandTotal: parseAmountInput(grandTotal),
       selectedCurrency,
+      isGuideUltime,
     };
     try {
       sessionStorage.setItem("formData", JSON.stringify(formData));
     } catch {
       // Safari private mode blocks storage writes — draft saving is optional
     }
-  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency]);
+  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency, isGuideUltime]);
 
   const handleInputChange = (setter) => (e) => {
     const { name, value } = e.target;
@@ -128,15 +140,18 @@ const Index = () => {
   };
 
   const amountValue = parseAmountInput(grandTotal);
+  const saleService = isGuideUltime ? GUIDE_ULTIME.label : service;
+  const saleAmount = isGuideUltime ? GUIDE_ULTIME.price : amountValue;
+  const saleCurrency = isGuideUltime ? GUIDE_ULTIME.currency : selectedCurrency;
   const missingFields = useMemo(
     () => getMissingInvoiceFields({
       clientInfo,
       invoice,
-      service,
+      service: saleService,
       salesRep,
-      grandTotal: amountValue,
+      grandTotal: saleAmount,
     }),
-    [clientInfo, invoice, service, salesRep, amountValue]
+    [clientInfo, invoice, saleService, salesRep, saleAmount]
   );
   const canGenerate = missingFields.length === 0 && !submitting;
 
@@ -164,8 +179,8 @@ const Index = () => {
       lastName: clientInfo.lastName,
       email: clientInfo.email,
       whatsapp: normalizedWhatsapp,
-      service: service,
-      amount: amountValue,
+      service: saleService,
+      amount: saleAmount,
       invoiceNumber,
       invoiceDate: invoice.date
     });
@@ -189,9 +204,10 @@ const Index = () => {
           client_last_name: validated.lastName,
           client_email: validated.email,
           client_whatsapp: validated.whatsapp,
-          service_description: sanitizeText(validated.service),
-          amount: validated.amount,
-          currency: selectedCurrency,
+          service_description: isGuideUltime ? GUIDE_ULTIME.label : sanitizeText(validated.service),
+          amount: isGuideUltime ? GUIDE_ULTIME.price : validated.amount,
+          currency: saleCurrency,
+          product_code: isGuideUltime ? GUIDE_ULTIME.productCode : null,
           payment_type: (Array.isArray(selectedPayments) ? selectedPayments : ['USA']).join(','),
           sales_representative: salesRep,
           template_number: templateNumber,
@@ -227,12 +243,13 @@ const Index = () => {
           whatsapp: validated.whatsapp,
         },
         invoice: { ...invoice, number: usedNumber },
-        service,
+        service: isGuideUltime ? GUIDE_ULTIME.label : service,
         paymentInfo: { types: selectedPayments },
         selectedPayments,
         salesRep,
-        grandTotal: amountValue,
-        selectedCurrency,
+        grandTotal: saleAmount,
+        selectedCurrency: saleCurrency,
+        isGuideUltime,
         invoiceNumberConsumed: true,
       };
       try {
@@ -269,6 +286,7 @@ const Index = () => {
     setSelectedPayments(["France"]);
     setSalesRep("Josphin");
     setGrandTotal('1500');
+    setIsGuideUltime(false);
   };
 
   const clearForm = async () => {
@@ -280,6 +298,7 @@ const Index = () => {
     setSelectedPayments(["USA"]);
     setSalesRep("");
     setGrandTotal('');
+    setIsGuideUltime(false);
     sessionStorage.removeItem("formData");
     hydratedRef.current = true;
   };
@@ -319,8 +338,11 @@ const Index = () => {
               <ClientInfoSection
                 clientInfo={clientInfo}
                 handleInputChange={handleInputChange(setClientInfo)}
-                selectedCurrency={selectedCurrency}
-                setSelectedCurrency={setSelectedCurrency}
+                selectedCurrency={saleCurrency}
+                setSelectedCurrency={(value) => {
+                  if (!isGuideUltime) setSelectedCurrency(value);
+                }}
+                currencyLocked={isGuideUltime}
               />
 
               <div className="mb-6">
@@ -346,21 +368,73 @@ const Index = () => {
                 </div>
               </div>
 
-              <ServiceSection service={service} handleServiceChange={(e) => setService(e.target.value)} />
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold mb-4">Produit</h2>
+                <button
+                  type="button"
+                  aria-pressed={isGuideUltime}
+                  onClick={() => {
+                    if (isGuideUltime) {
+                      setIsGuideUltime(false);
+                      return;
+                    }
+                    setIsGuideUltime(true);
+                    setService(GUIDE_ULTIME.label);
+                    setGrandTotal(String(GUIDE_ULTIME.price));
+                    setSelectedCurrency(GUIDE_ULTIME.currency);
+                  }}
+                  className={`w-full text-left flex items-start gap-3 p-3 border rounded-md transition-colors tap-highlight ${
+                    isGuideUltime
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border ${
+                      isGuideUltime
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-primary'
+                    }`}
+                  >
+                    {isGuideUltime ? '✓' : ''}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="font-semibold">{GUIDE_ULTIME.buttonLabel}</span>
+                    <span className="block text-sm text-muted-foreground mt-1">
+                      {GUIDE_ULTIME.label} — {formatCurrency(GUIDE_ULTIME.price, GUIDE_ULTIME.currency, 0)}
+                    </span>
+                    {isGuideUltime && (
+                      <span className="block text-sm font-medium text-primary mt-1">
+                        Commission : {formatCurrency(GUIDE_ULTIME.commission, GUIDE_ULTIME.currency, 0)}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </div>
+
+              <ServiceSection
+                service={saleService}
+                handleServiceChange={(e) => setService(e.target.value)}
+                disabled={isGuideUltime}
+              />
 
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-2">Montant total</h3>
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={grandTotal}
+                  value={isGuideUltime ? String(GUIDE_ULTIME.price) : grandTotal}
                   onChange={(e) => setGrandTotal(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isGuideUltime}
+                  className={`w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    isGuideUltime ? 'bg-muted cursor-not-allowed opacity-80' : ''
+                  }`}
                   placeholder="Ex: 150000"
                 />
                 <p className="mt-2 text-sm text-gray-600">
-                  {amountValue > 0
-                    ? formatCurrency(amountValue, selectedCurrency)
+                  {saleAmount > 0
+                    ? formatCurrency(saleAmount, saleCurrency)
                     : 'Saisissez le montant'}
                 </p>
               </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trophy, Medal, Award, TrendingUp, Coins, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
+import { GUIDE_ULTIME } from '@/constants/products';
 import {
   calculateLeaderboardData,
   getQuarterInfo,
@@ -184,6 +185,11 @@ const Leaderboard = ({ invoices, periodLabel, periodDates }) => {
                       <span className="text-xs px-2 py-1 rounded bg-primary/10">
                         Base: {formatCurrency(rep.commission?.baseCommission || 0, 'XOF')}
                       </span>
+                      {rep.commission?.guideSalesCount > 0 && (
+                        <span className="text-xs px-2 py-1 rounded bg-primary/10">
+                          Guide ultime : {rep.commission.guideSalesCount} × {formatCurrency(GUIDE_ULTIME.commission, 'XOF', 0)}
+                        </span>
+                      )}
                       {rep.commission?.tierBonus > 0 && (
                         <span className="text-xs px-2 py-1 rounded bg-success/20 text-success">
                           +{formatCurrency(rep.commission.tierBonus, 'XOF')} (850k)
