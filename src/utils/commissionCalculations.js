@@ -1,4 +1,5 @@
 import { DEFAULT_SALES_REP_NAMES } from '@/constants/salesReps';
+import { GUIDE_ULTIME, isGuideUltime } from '@/constants/products';
 
 /**
  * Configuration des commissions et points pour les commerciaux
@@ -26,26 +27,36 @@ export const getNetAmount = (amount, paymentType) => {
 };
 
 /**
- * Calcule les commissions détaillées pour un commercial
- * @param {number} netSales - Total des ventes nettes (après frais Maketou)
+ * Calcule les commissions détaillées pour un commercial.
+ * Le Guide ultime est une commission fixe, hors base de 10 %.
+ * Le seuil 850k et le bonus du 1er restent calculés sur le net total.
+ * @param {number} netSales - Total des ventes nettes (après frais Maketou), guides inclus
  * @param {boolean} isTopSeller - Si ce commercial est le meilleur vendeur du mois
+ * @param {object} extras
+ * @param {number} [extras.standardNetSales] - Net hors Guide ultime (défaut : netSales)
+ * @param {number} [extras.guideSalesCount] - Nombre de guides payés
  * @returns {object} Détail des commissions
  */
-export const calculateCommission = (netSales, isTopSeller = false) => {
-  // Commission de base : 10%
-  const baseCommission = netSales * COMMISSION_CONFIG.BASE_COMMISSION_RATE;
-  
-  // Bonus palier : +10k si >= 850k
+export const calculateCommission = (netSales, isTopSeller = false, extras = {}) => {
+  const standardNetSales = extras.standardNetSales ?? netSales;
+  const guideSalesCount = extras.guideSalesCount ?? 0;
+  const guideCommission = guideSalesCount * GUIDE_ULTIME.commission;
+
+  // Commission de base : 10 % du net hors Guide ultime
+  const baseCommission = standardNetSales * COMMISSION_CONFIG.BASE_COMMISSION_RATE;
+
+  // Bonus palier : +10k si >= 850k (net total, guides inclus)
   const tierBonus = netSales >= COMMISSION_CONFIG.TIER_THRESHOLD ? COMMISSION_CONFIG.TIER_BONUS : 0;
-  
+
   // Bonus meilleur vendeur : +15k
   const topSellerBonus = isTopSeller ? COMMISSION_CONFIG.TOP_SELLER_BONUS : 0;
-  
-  // Total
-  const totalCommission = baseCommission + tierBonus + topSellerBonus;
-  
+
+  const totalCommission = baseCommission + guideCommission + tierBonus + topSellerBonus;
+
   return {
     baseCommission,
+    guideCommission,
+    guideSalesCount,
     tierBonus,
     topSellerBonus,
     totalCommission
@@ -103,14 +114,23 @@ export const calculateLeaderboardData = (invoices, periodDates, pointsHistory = 
       return paymentDate >= startDate && paymentDate <= endDate;
     });
     
-    // Calcul des ventes brutes et nettes
+    // Calcul des ventes brutes et nettes.
+    // Le Guide ultime reste dans le net (classement, seuil), mais sort de la base 10 %.
     let grossSales = 0;
     let netSales = 0;
-    
+    let standardNetSales = 0;
+    let guideSalesCount = 0;
+
     repInvoices.forEach(inv => {
       const amount = parseFloat(inv.amount);
+      const net = getNetAmount(amount, inv.payment_type);
       grossSales += amount;
-      netSales += getNetAmount(amount, inv.payment_type);
+      netSales += net;
+      if (isGuideUltime(inv)) {
+        guideSalesCount += 1;
+      } else {
+        standardNetSales += net;
+      }
     });
     
     return {
@@ -119,6 +139,8 @@ export const calculateLeaderboardData = (invoices, periodDates, pointsHistory = 
       salesCount: repInvoices.length,
       grossSales,
       netSales,
+      standardNetSales,
+      guideSalesCount,
       // Les commissions et points seront calculés après le tri
       commission: null,
       monthlyPoints: 0,
@@ -132,7 +154,10 @@ export const calculateLeaderboardData = (invoices, periodDates, pointsHistory = 
   // Calculer les commissions et points selon la position
   leaderboardData.forEach((rep, index) => {
     const isTopSeller = index === 0 && rep.netSales > 0;
-    rep.commission = calculateCommission(rep.netSales, isTopSeller);
+    rep.commission = calculateCommission(rep.netSales, isTopSeller, {
+      standardNetSales: rep.standardNetSales,
+      guideSalesCount: rep.guideSalesCount,
+    });
     rep.monthlyPoints = rep.netSales > 0 ? getMonthlyPoints(index) : 0;
     rep.position = index + 1;
     

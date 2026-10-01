@@ -20,6 +20,7 @@ import InvoiceStatusStepper from '@/components/InvoiceStatusStepper';
 import ClientHistoryPanel from '@/components/ClientHistoryPanel';
 import { buildInvoiceWhatsAppMessage } from '@/utils/whatsappUtils';
 import { installmentFormSchema } from '@/utils/installments';
+import { GUIDE_ULTIME, isGuideUltime } from '@/constants/products';
 import {
   Select,
   SelectContent,
@@ -62,6 +63,7 @@ const CRMPage = () => {
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
   const [filterService, setFilterService] = useState('all');
+  const [filterGuide, setFilterGuide] = useState(false);
   const [sortField, setSortField] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -496,6 +498,7 @@ const CRMPage = () => {
         filterYear === 'all' || invoiceDate.getFullYear().toString() === filterYear;
       const matchesService =
         filterService === 'all' || invoice.service_description === filterService;
+      const matchesGuide = !filterGuide || isGuideUltime(invoice);
 
       return (
         matchesSearch &&
@@ -504,7 +507,8 @@ const CRMPage = () => {
         matchesPaymentType &&
         matchesMonth &&
         matchesYear &&
-        matchesService
+        matchesService &&
+        matchesGuide
       );
     });
 
@@ -524,7 +528,7 @@ const CRMPage = () => {
     });
 
     return filtered;
-  }, [invoices, searchTerm, filterSalesRep, filterStatus, filterPaymentType, filterMonth, filterYear, filterService, sortField, sortDir]);
+  }, [invoices, searchTerm, filterSalesRep, filterStatus, filterPaymentType, filterMonth, filterYear, filterService, filterGuide, sortField, sortDir]);
 
   const totalPages = Math.ceil(filteredInvoices.length / PAGE_SIZE);
   const paginatedInvoices = filteredInvoices.slice(
@@ -534,7 +538,7 @@ const CRMPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterSalesRep, filterStatus, filterPaymentType, filterMonth, filterYear, filterService]);
+  }, [searchTerm, filterSalesRep, filterStatus, filterPaymentType, filterMonth, filterYear, filterService, filterGuide]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -544,10 +548,11 @@ const CRMPage = () => {
     setFilterMonth('all');
     setFilterYear('all');
     setFilterService('all');
+    setFilterGuide(false);
   };
 
   const hasActiveFilters = searchTerm || filterSalesRep !== 'all' || filterStatus !== 'all' ||
-    filterPaymentType !== 'all' || filterMonth !== 'all' || filterYear !== 'all' || filterService !== 'all';
+    filterPaymentType !== 'all' || filterMonth !== 'all' || filterYear !== 'all' || filterService !== 'all' || filterGuide;
 
   if (loading) {
     return (
@@ -572,6 +577,18 @@ const CRMPage = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 p-2 md:p-3 border border-input bg-background rounded-md text-sm"
           />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={filterGuide ? 'default' : 'outline'}
+            size="sm"
+            aria-pressed={filterGuide}
+            onClick={() => setFilterGuide((current) => !current)}
+          >
+            {GUIDE_ULTIME.buttonLabel}
+          </Button>
         </div>
 
         {/* Filter grid - Row 1 */}
@@ -717,8 +734,13 @@ const CRMPage = () => {
                       : ''
                   }`}
                 >
-                  <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-gray-900">
-                    {invoice.invoice_number}
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium text-gray-900">
+                    <div>{invoice.invoice_number}</div>
+                    {isGuideUltime(invoice) && (
+                      <span className="mt-1 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                        {GUIDE_ULTIME.buttonLabel}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-900">
                     <div>{invoice.client_first_name}</div>

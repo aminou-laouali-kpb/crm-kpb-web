@@ -3,7 +3,7 @@ import FloatingLabelInput from './FloatingLabelInput';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
-const ClientInfoSection = ({ clientInfo, handleInputChange, selectedCurrency, setSelectedCurrency }) => {
+const ClientInfoSection = ({ clientInfo, handleInputChange, selectedCurrency, setSelectedCurrency, currencyLocked = false }) => {
   return (
     <div className="mb-6">
       <div className="mb-4">
@@ -12,6 +12,7 @@ const ClientInfoSection = ({ clientInfo, handleInputChange, selectedCurrency, se
           value={selectedCurrency}
           onValueChange={setSelectedCurrency}
           className="flex space-x-4"
+          disabled={currencyLocked}
         >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="XOF" id="xof" />
