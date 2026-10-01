@@ -36,6 +36,13 @@
       "when": 1790592211672,
       "tag": "0004_payment_installments",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790890163646,
+      "tag": "0005_guide_ultime_product_code",
+      "breakpoints": true
     }
   ]
 }
