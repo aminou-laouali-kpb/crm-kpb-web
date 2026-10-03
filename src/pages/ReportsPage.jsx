@@ -4,7 +4,19 @@ import { toast } from "sonner";
 import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Download, Calendar, FileText, Trophy, CreditCard, TrendingUp, DollarSign, Banknote, Smartphone, Globe, MapPin, FileDown, X } from 'lucide-react';
+import { Download, Calendar, FileText, Trophy, CreditCard, TrendingUp, DollarSign, Banknote, Smartphone, Globe, MapPin, FileDown, FileSpreadsheet } from 'lucide-react';
+import {
+  buildPeriodRange,
+  defaultClosedMonthsRange,
+  monthlySummaries,
+  paymentModeStats,
+  periodFileSlug,
+  salesRepPerformance,
+  serviceRanking,
+  statusBreakdown,
+  summarizePeriod,
+} from '../utils/reportPeriod';
+import { exportCommercialReportExcel } from '../utils/commercialReportExport';
 import { formatCurrency } from '../utils/formatCurrency';
 import {
   Select,
@@ -91,111 +103,96 @@ const ReportsPage = () => {
   const reportRef = useRef(null);
   const [paymentDrilldown, setPaymentDrilldown] = useState(null);
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth().toString());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear().toString());
+  const closedPreset = defaultClosedMonthsRange(now);
+  const [startMonth, setStartMonth] = useState(now.getMonth().toString());
+  const [startYear, setStartYear] = useState(now.getFullYear().toString());
+  const [endMonth, setEndMonth] = useState(now.getMonth().toString());
+  const [endYear, setEndYear] = useState(now.getFullYear().toString());
 
   const last3Months = getLast3Months();
   const yearOptions = getYearOptions();
+  const range = buildPeriodRange(
+    parseInt(startMonth, 10),
+    parseInt(startYear, 10),
+    parseInt(endMonth, 10),
+    parseInt(endYear, 10),
+  );
+  const presetRange = buildPeriodRange(
+    closedPreset.startMonth,
+    closedPreset.startYear,
+    closedPreset.endMonth,
+    closedPreset.endYear,
+  );
+  const isPreset = range.valid
+    && startMonth === String(closedPreset.startMonth)
+    && startYear === String(closedPreset.startYear)
+    && endMonth === String(closedPreset.endMonth)
+    && endYear === String(closedPreset.endYear);
 
   useEffect(() => {
-    fetchInvoices();
-  }, [selectedMonth, selectedYear]);
+    let cancelled = false;
+    const period = buildPeriodRange(
+      parseInt(startMonth, 10),
+      parseInt(startYear, 10),
+      parseInt(endMonth, 10),
+      parseInt(endYear, 10),
+    );
 
-  const getPeriodDates = () => {
-    const month = parseInt(selectedMonth);
-    const year = parseInt(selectedYear);
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-    return { startDate, endDate };
-  };
-
-  const fetchInvoices = async () => {
-    try {
-      setLoading(true);
-      const { supabase } = await import("@/integrations/supabase/client");
-      const month = parseInt(selectedMonth);
-      const year = parseInt(selectedYear);
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
-      const { data, error } = await supabase.rpc('get_invoice_stats', {
-        p_start_date: startDate.toISOString(),
-        p_end_date: endDate.toISOString()
-      });
-
-      if (error) throw error;
-      setInvoices(data || []);
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-      toast.error("Erreur lors du chargement des données");
-    } finally {
+    if (!period.valid) {
+      setInvoices([]);
       setLoading(false);
+      return undefined;
     }
-  };
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data, error } = await supabase.rpc('get_invoice_stats', {
+          p_start_date: period.startDate.toISOString(),
+          p_end_date: period.endDate.toISOString()
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        setInvoices(data || []);
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Error fetching invoices:', error);
+        setInvoices([]);
+        toast.error("Erreur lors du chargement des données");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [startMonth, startYear, endMonth, endYear]);
 
   const handleQuickSelect = (month, year) => {
-    setSelectedMonth(month.toString());
-    setSelectedYear(year.toString());
+    setStartMonth(month.toString());
+    setEndMonth(month.toString());
+    setStartYear(year.toString());
+    setEndYear(year.toString());
   };
 
-  // ── Stats helpers ──
-
-  const getOverallStats = () => {
-    const { startDate, endDate } = getPeriodDates();
-    const invoicesCreated = invoices.filter(inv => {
-      const d = new Date(inv.created_at);
-      return d >= startDate && d <= endDate;
-    });
-    const invoicesPaid = invoices.filter(inv => {
-      if (inv.status !== 'paid' || !inv.last_status_change) return false;
-      const d = new Date(inv.last_status_change);
-      return d >= startDate && d <= endDate;
-    });
-    const totalInvoices = invoicesCreated.length;
-    const totalAmount = invoicesCreated.reduce((s, i) => s + parseFloat(i.amount), 0);
-    const paidAmount = invoicesPaid.reduce((s, i) => s + parseFloat(i.amount), 0);
-    return {
-      totalInvoices,
-      totalAmount,
-      paidInvoices: invoicesPaid.length,
-      paidAmount,
-      pendingAmount: totalAmount - paidAmount,
-      conversionRate: totalInvoices > 0 ? ((invoicesPaid.length / totalInvoices) * 100).toFixed(1) : 0
-    };
+  const applyClosedPreset = () => {
+    setStartMonth(String(closedPreset.startMonth));
+    setStartYear(String(closedPreset.startYear));
+    setEndMonth(String(closedPreset.endMonth));
+    setEndYear(String(closedPreset.endYear));
   };
 
-  const getPaymentTrackingStats = () => {
-    const { startDate, endDate } = getPeriodDates();
-    const paymentMap = {};
-    let totalPaid = 0;
-
-    const paidInvoices = invoices.filter(inv => {
-      if (inv.status !== 'paid' || !inv.last_status_change) return false;
-      const d = new Date(inv.last_status_change);
-      return d >= startDate && d <= endDate;
-    });
-
-    paidInvoices.forEach(inv => {
-      const amount = parseFloat(inv.amount);
-      totalPaid += amount;
-      const types = (inv.payment_type || 'Non spécifié').split(',').map(t => t.trim());
-      const splitAmount = amount / types.length;
-      types.forEach(type => {
-        if (!paymentMap[type]) paymentMap[type] = { count: 0, amount: 0 };
-        paymentMap[type].count += 1;
-        paymentMap[type].amount += splitAmount;
-      });
-    });
-
-    const stats = Object.entries(paymentMap)
-      .map(([name, data]) => ({ name, ...data, percentage: totalPaid > 0 ? (data.amount / totalPaid) * 100 : 0 }))
-      .sort((a, b) => b.amount - a.amount);
-
-    return { stats, totalPaid, totalCount: paidInvoices.length, paidInvoices };
-  };
+  const periodDates = () => (
+    range.valid
+      ? { startDate: range.startDate, endDate: range.endDate }
+      : { startDate: new Date(0), endDate: new Date(0) }
+  );
 
   const getInvoicesForPaymentMode = (paymentMode) => {
-    const { startDate, endDate } = getPeriodDates();
+    const { startDate, endDate } = periodDates();
     return invoices.filter(inv => {
       if (inv.status !== 'paid' || !inv.last_status_change) return false;
       const d = new Date(inv.last_status_change);
@@ -226,102 +223,6 @@ const ReportsPage = () => {
       console.error('Receipt download failed:', e);
       toast.error("Erreur lors du téléchargement du reçu");
     }
-  };
-
-  const getTopServices = () => {
-    const { startDate, endDate } = getPeriodDates();
-    const serviceMap = {};
-
-    invoices.forEach(inv => {
-      const service = inv.service_description || 'Non spécifié';
-      const createdAt = new Date(inv.created_at);
-      const isCreated = createdAt >= startDate && createdAt <= endDate;
-
-      if (!serviceMap[service]) serviceMap[service] = { name: service, totalAmount: 0, paidAmount: 0, count: 0, paidCount: 0 };
-
-      if (isCreated) {
-        serviceMap[service].totalAmount += parseFloat(inv.amount);
-        serviceMap[service].count += 1;
-      }
-
-      if (inv.status === 'paid' && inv.last_status_change) {
-        const pd = new Date(inv.last_status_change);
-        if (pd >= startDate && pd <= endDate) {
-          serviceMap[service].paidAmount += parseFloat(inv.amount);
-          serviceMap[service].paidCount += 1;
-        }
-      }
-    });
-
-    return Object.values(serviceMap)
-      .filter(s => s.count > 0 || s.paidCount > 0)
-      .sort((a, b) => b.totalAmount - a.totalAmount);
-  };
-
-  const getStatusStats = () => {
-    const statusMap = {
-      generated: { name: 'Générées', count: 0, amount: 0 },
-      sent: { name: 'Envoyées', count: 0, amount: 0 },
-      awaiting_payment: { name: 'En attente', count: 0, amount: 0 },
-      to_follow_up: { name: 'À relancer', count: 0, amount: 0 },
-      paid: { name: 'Payées', count: 0, amount: 0 }
-    };
-    invoices.forEach(inv => {
-      if (statusMap[inv.status]) {
-        statusMap[inv.status].count += 1;
-        statusMap[inv.status].amount += parseFloat(inv.amount);
-      }
-    });
-    return Object.values(statusMap).filter(s => s.count > 0);
-  };
-
-  const getSalesRepStats = () => {
-    const { startDate, endDate } = getPeriodDates();
-    const stats = {};
-    const salesReps = ['Josphin', 'Nadia', 'Donald', 'Richard'];
-    salesReps.forEach(rep => {
-      const created = invoices.filter(inv => {
-        if (inv.sales_representative !== rep) return false;
-        const d = new Date(inv.created_at);
-        return d >= startDate && d <= endDate;
-      });
-      const paid = invoices.filter(inv => {
-        if (inv.sales_representative !== rep || inv.status !== 'paid' || !inv.last_status_change) return false;
-        const d = new Date(inv.last_status_change);
-        return d >= startDate && d <= endDate;
-      });
-      const totalAmount = created.reduce((s, i) => s + parseFloat(i.amount), 0);
-      const paidAmount = paid.reduce((s, i) => s + parseFloat(i.amount), 0);
-      stats[rep] = {
-        totalInvoices: created.length,
-        totalAmount,
-        paidInvoices: paid.length,
-        paidAmount,
-        pendingInvoices: created.length - paid.length,
-        pendingAmount: totalAmount - paidAmount
-      };
-    });
-    return stats;
-  };
-
-  const getServiceStats = () => {
-    const { startDate, endDate } = getPeriodDates();
-    const serviceMap = {};
-    invoices.forEach(inv => {
-      const service = inv.service_description || 'Non spécifié';
-      const createdAt = new Date(inv.created_at);
-      const isCreated = createdAt >= startDate && createdAt <= endDate;
-      if (!serviceMap[service]) serviceMap[service] = { name: service, totalAmount: 0, paidAmount: 0, count: 0 };
-      if (isCreated) {
-        serviceMap[service].totalAmount += parseFloat(inv.amount);
-        serviceMap[service].count += 1;
-      }
-      if (inv.status === 'paid' && inv.last_status_change) {
-        const pd = new Date(inv.last_status_change);
-        if (pd >= startDate && pd <= endDate) serviceMap[service].paidAmount += parseFloat(inv.amount);
-      }
-    });
-    return Object.values(serviceMap).filter(s => s.count > 0 || s.paidAmount > 0).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 10);
   };
 
   // ── PDF Export ──
@@ -355,7 +256,7 @@ const ReportsPage = () => {
         pdf.addImage(pageImg, 'JPEG', 0, 0, imgWidth, sliceHeightMm, undefined, 'FAST');
       }
 
-      pdf.save(`Rapport_${MONTHS[parseInt(selectedMonth)].label}_${selectedYear}.pdf`);
+      pdf.save(`Rapport_${periodFileSlug(range.label)}.pdf`);
       toast.success("Rapport PDF exporté avec succès!");
     } catch (error) {
       console.error('PDF export error:', error);
@@ -369,19 +270,43 @@ const ReportsPage = () => {
     return <div className="container mx-auto px-4 py-8">Chargement...</div>;
   }
 
-  const overallStats = getOverallStats();
-  const paymentTracking = getPaymentTrackingStats();
-  const topServices = getTopServices();
-  const salesRepStats = getSalesRepStats();
-  const serviceStats = getServiceStats();
-  const statusStats = getStatusStats();
-  const periodLabel = `${MONTHS[parseInt(selectedMonth)].label} ${selectedYear}`;
+  const { startDate, endDate } = periodDates();
+  const overallStats = summarizePeriod(invoices, startDate, endDate);
+  const paymentTracking = paymentModeStats(invoices, startDate, endDate);
+  const topServices = serviceRanking(invoices, startDate, endDate);
+  const salesRepStats = salesRepPerformance(invoices, startDate, endDate);
+  const serviceStats = topServices.slice(0, 10);
+  const statusStats = statusBreakdown(invoices);
+  const monthRows = range.valid ? monthlySummaries(invoices, range.months) : [];
+  const periodLabel = range.valid ? range.label : 'Période invalide';
+
+  const exportExcel = async () => {
+    if (!range.valid || invoices.length === 0) return;
+    try {
+      await exportCommercialReportExcel({
+        periodLabel,
+        overall: overallStats,
+        months: monthRows,
+        payments: paymentTracking.stats,
+        services: topServices,
+        salesReps: salesRepStats,
+      });
+      toast.success("Rapport Excel téléchargé");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erreur lors de l'export Excel");
+    }
+  };
   const maxServiceAmount = topServices.length > 0 ? topServices[0].totalAmount : 1;
 
   return (
     <AppLayout title="Rapports" subtitle={periodLabel}>
-      <div className="flex justify-end mb-4">
-        <Button onClick={exportToPDF} disabled={exporting || invoices.length === 0} className="bg-gradient-primary hover:opacity-90">
+      <div className="flex justify-end gap-2 mb-4">
+        <Button variant="outline" onClick={exportExcel} disabled={!range.valid || invoices.length === 0}>
+          <FileSpreadsheet className="mr-2 h-4 w-4" />
+          Excel
+        </Button>
+        <Button onClick={exportToPDF} disabled={exporting || !range.valid || invoices.length === 0} className="bg-gradient-primary hover:opacity-90">
           <Download className="mr-2 h-4 w-4" />
           {exporting ? 'Export en cours...' : 'Exporter PDF'}
         </Button>
@@ -392,46 +317,83 @@ const ReportsPage = () => {
         <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
           <Calendar className="h-4 w-4" /> Sélectionner la période
         </h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          Le PDF et l’Excel regroupent toute la période dans un seul fichier.
+        </p>
         <div className="flex flex-wrap gap-2 mb-4">
-          {last3Months.map((m, idx) => (
-            <Button
-              key={idx}
-              variant={selectedMonth === m.month.toString() && selectedYear === m.year.toString() ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleQuickSelect(m.month, m.year)}
-              className={selectedMonth === m.month.toString() && selectedYear === m.year.toString() ? "bg-gradient-primary" : ""}
-            >
-              {m.label}
-            </Button>
-          ))}
+          <Button
+            variant={isPreset ? "default" : "outline"}
+            size="sm"
+            onClick={applyClosedPreset}
+            className={isPreset ? "bg-gradient-primary" : ""}
+          >
+            {presetRange.label}
+          </Button>
+          {last3Months.map((m, idx) => {
+            const selected = !range.isRange && startMonth === m.month.toString() && startYear === m.year.toString();
+            return (
+              <Button
+                key={idx}
+                variant={selected ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleQuickSelect(m.month, m.year)}
+                className={selected ? "bg-gradient-primary" : ""}
+              >
+                {m.label}
+              </Button>
+            );
+          })}
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Mois" /></SelectTrigger>
-            <SelectContent>
-              {MONTHS.map(month => (<SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-full sm:w-32"><SelectValue placeholder="Année" /></SelectTrigger>
-            <SelectContent>
-              {yearOptions.map(year => (<SelectItem key={year.value} value={year.value}>{year.label}</SelectItem>))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <span className="text-sm text-muted-foreground w-8">Du</span>
+            <Select value={startMonth} onValueChange={setStartMonth}>
+              <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Mois" /></SelectTrigger>
+              <SelectContent>
+                {MONTHS.map(month => (<SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={startYear} onValueChange={setStartYear}>
+              <SelectTrigger className="w-full sm:w-32"><SelectValue placeholder="Année" /></SelectTrigger>
+              <SelectContent>
+                {yearOptions.map(year => (<SelectItem key={`s-${year.value}`} value={year.value}>{year.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <span className="text-sm text-muted-foreground w-8">Au</span>
+            <Select value={endMonth} onValueChange={setEndMonth}>
+              <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Mois" /></SelectTrigger>
+              <SelectContent>
+                {MONTHS.map(month => (<SelectItem key={`e-${month.value}`} value={month.value}>{month.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={endYear} onValueChange={setEndYear}>
+              <SelectTrigger className="w-full sm:w-32"><SelectValue placeholder="Année" /></SelectTrigger>
+              <SelectContent>
+                {yearOptions.map(year => (<SelectItem key={`e-${year.value}`} value={year.value}>{year.label}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!range.valid && <p className="text-sm text-destructive">{range.error}</p>}
         </div>
       </div>
 
       {/* Report Content */}
       <div ref={reportRef} className="bg-background p-6 rounded-xl">
         <div className="text-center mb-8 border-b border-border pb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Rapport Mensuel</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{range.isRange ? 'Rapport de période' : 'Rapport Mensuel'}</h1>
           <p className="text-lg text-primary font-semibold">{periodLabel}</p>
           <p className="text-sm text-muted-foreground mt-2">
             Généré le {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
 
-        {invoices.length === 0 ? (
+        {!range.valid ? (
+          <div className="text-center py-12">
+            <p className="text-lg text-muted-foreground">{range.error}</p>
+          </div>
+        ) : invoices.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-lg text-muted-foreground">Aucune facture pour cette période</p>
@@ -458,10 +420,50 @@ const ReportsPage = () => {
                 </div>
                 <div className="bg-muted/50 p-4 rounded-lg border border-border">
                   <h3 className="text-xs text-muted-foreground uppercase tracking-wide">Taux conversion</h3>
-                  <p className="text-2xl font-bold text-primary mt-1">{overallStats.conversionRate}%</p>
+                  <p className="text-2xl font-bold text-primary mt-1">{overallStats.conversionRate.toFixed(1)}%</p>
                 </div>
               </div>
             </div>
+
+            {range.isRange && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-foreground">Évolution mensuelle</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-3 text-foreground">Mois</th>
+                        <th className="text-center p-3 text-foreground">Créées</th>
+                        <th className="text-right p-3 text-foreground">Montant créé</th>
+                        <th className="text-center p-3 text-foreground">Payées</th>
+                        <th className="text-right p-3 text-foreground">Encaissé</th>
+                        <th className="text-center p-3 text-foreground">Taux</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthRows.map((month) => (
+                        <tr key={month.key} className="border-b border-border/50">
+                          <td className="p-3 font-medium text-foreground">{month.label}</td>
+                          <td className="text-center p-3 text-foreground">{month.totalInvoices}</td>
+                          <td className="text-right p-3 text-foreground">{formatCurrency(month.totalAmount, 'XOF')}</td>
+                          <td className="text-center p-3 text-success">{month.paidInvoices}</td>
+                          <td className="text-right p-3 text-success">{formatCurrency(month.paidAmount, 'XOF')}</td>
+                          <td className="text-center p-3 font-semibold text-primary">{month.conversionRate.toFixed(0)}%</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-border">
+                        <td className="p-3 font-semibold text-foreground">Total</td>
+                        <td className="text-center p-3 font-semibold text-foreground">{overallStats.totalInvoices}</td>
+                        <td className="text-right p-3 font-semibold text-foreground">{formatCurrency(overallStats.totalAmount, 'XOF')}</td>
+                        <td className="text-center p-3 font-semibold text-success">{overallStats.paidInvoices}</td>
+                        <td className="text-right p-3 font-semibold text-success">{formatCurrency(overallStats.paidAmount, 'XOF')}</td>
+                        <td className="text-center p-3 font-semibold text-primary">{overallStats.conversionRate.toFixed(0)}%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* 2. Suivi des Paiements par Mode */}
             <div className="mb-8">
@@ -617,15 +619,15 @@ const ReportsPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(salesRepStats).map(([rep, stats]) => (
-                      <tr key={rep} className="border-b border-border/50">
-                        <td className="p-3 font-medium text-foreground">{rep}</td>
+                    {salesRepStats.map((stats) => (
+                      <tr key={stats.name} className="border-b border-border/50">
+                        <td className="p-3 font-medium text-foreground">{stats.name}</td>
                         <td className="text-center p-3 text-foreground">{stats.totalInvoices}</td>
                         <td className="text-right p-3 text-foreground">{formatCurrency(stats.totalAmount, 'XOF')}</td>
                         <td className="text-center p-3 text-success">{stats.paidInvoices}</td>
                         <td className="text-right p-3 text-success">{formatCurrency(stats.paidAmount, 'XOF')}</td>
                         <td className="text-center p-3 font-semibold text-primary">
-                          {stats.totalInvoices > 0 ? `${((stats.paidInvoices / stats.totalInvoices) * 100).toFixed(0)}%` : '0%'}
+                          {stats.conversionRate.toFixed(0)}%
                         </td>
                       </tr>
                     ))}
@@ -636,7 +638,7 @@ const ReportsPage = () => {
 
             {/* Footer */}
             <div className="text-center pt-6 border-t border-border">
-              <p className="text-sm text-muted-foreground">Karaté Pour Tous - Rapport généré automatiquement</p>
+              <p className="text-sm text-muted-foreground">KPB Education — Rapport généré automatiquement</p>
             </div>
           </>
         )}

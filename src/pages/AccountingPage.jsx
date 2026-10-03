@@ -36,6 +36,8 @@ import { MONTHS, getAvailableYears } from '@/constants/months';
 import { useAccountingData } from '@/hooks/useAccountingData';
 import AppLayout from '@/components/layout/AppLayout';
 import { exportAccountingToExcel, exportAccountingToPDF, exportAccountingToCSV } from '../utils/accountingExport';
+import { computeFinancialStats, groupExpensesByCategory } from '../utils/accountingStats';
+import PeriodExportDialog from '../components/accounting/PeriodExportDialog';
 
 const AccountingPage = () => {
   const navigate = useNavigate();
@@ -76,70 +78,6 @@ const AccountingPage = () => {
     return `${monthLabel} ${selectedYear}`;
   };
 
-  const getFinancialStats = () => {
-    // Revenue from paid invoices — filtered by last_status_change (payment date), not created_at
-    const salesRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-    
-    // Other income (received)
-    const otherIncome = plannedIncome
-      .filter(inc => inc.status === 'received')
-      .reduce((sum, inc) => sum + parseFloat(inc.amount), 0);
-    
-    const totalRevenue = salesRevenue + otherIncome;
-    
-    // Total expenses
-    const totalExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
-    const paidExpenses = expenses
-      .filter(exp => exp.status === 'paid')
-      .reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
-    
-    // Net balance
-    const netBalance = totalRevenue - totalExpenses;
-    
-    // Pending income
-    const pendingIncome = plannedIncome
-      .filter(inc => inc.status === 'pending')
-      .reduce((sum, inc) => sum + parseFloat(inc.amount), 0);
-    
-    // Overdue income
-    const overdueIncome = plannedIncome
-      .filter(inc => inc.status === 'overdue')
-      .reduce((sum, inc) => sum + parseFloat(inc.amount), 0);
-
-    return {
-      salesRevenue,
-      otherIncome,
-      totalRevenue,
-      totalExpenses,
-      paidExpenses,
-      netBalance,
-      pendingIncome,
-      overdueIncome,
-      salesCount: invoices.length,
-      expensesCount: expenses.length
-    };
-  };
-
-  const getExpensesByCategory = () => {
-    const categoryMap = {};
-    
-    expenses.forEach(exp => {
-      const categoryName = exp.expense_categories?.name || 'Non catégorisé';
-      const categoryColor = exp.expense_categories?.color || '#6b7280';
-      
-      if (!categoryMap[categoryName]) {
-        categoryMap[categoryName] = {
-          name: categoryName,
-          amount: 0,
-          color: categoryColor
-        };
-      }
-      categoryMap[categoryName].amount += parseFloat(exp.amount);
-    });
-
-    return Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
-  };
-
   if (accessLoading || loading) {
     return (
       <AppLayout title="Comptabilité">
@@ -152,8 +90,8 @@ const AccountingPage = () => {
     return null;
   }
 
-  const stats = getFinancialStats();
-  const expensesByCategory = getExpensesByCategory();
+  const stats = computeFinancialStats(invoices, expenses, plannedIncome);
+  const expensesByCategory = groupExpensesByCategory(expenses);
 
   return (
     <AppLayout title="Comptabilité" subtitle={getPeriodLabel()}>
@@ -185,6 +123,7 @@ const AccountingPage = () => {
           
           {/* Export buttons */}
           <div className="flex gap-2 ml-auto sm:ml-2">
+            <PeriodExportDialog />
             <Button 
               variant="outline" 
               size="sm"

@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { periodFileSlug } from './reportPeriod';
 
 // Format currency helper
 const formatCurrency = (amount, currency = 'XOF') => {
@@ -15,7 +16,7 @@ const formatCurrency = (amount, currency = 'XOF') => {
 
 // Export to Excel with multiple sheets
 export const exportAccountingToExcel = async (data, period) => {
-  const { invoices, expenses, plannedIncome, stats } = data;
+  const { invoices, expenses, plannedIncome, stats, monthlyRows } = data;
   
   const wb = new ExcelJS.Workbook();
   
@@ -31,6 +32,22 @@ export const exportAccountingToExcel = async (data, period) => {
   wsSummary.addRow(['Revenus en attente', stats.pendingIncome]);
   wsSummary.addRow(['Nombre de ventes', stats.salesCount]);
   wsSummary.addRow(['Nombre de dépenses', stats.expensesCount]);
+
+  if (monthlyRows?.length) {
+    const wsMonthly = wb.addWorksheet('Mensuel');
+    wsMonthly.columns = [{ width: 22 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 12 }, { width: 14 }];
+    wsMonthly.addRow(['Mois', 'Revenus (XOF)', 'Dépenses (XOF)', 'Solde net (XOF)', 'Ventes', 'Dépenses (nb)']);
+    monthlyRows.forEach((row) => {
+      wsMonthly.addRow([
+        row.label,
+        row.revenue,
+        row.totalExpenses,
+        row.net,
+        row.salesCount,
+        row.expensesCount,
+      ]);
+    });
+  }
   
   // Sheet 2: Expenses
   const wsExpenses = wb.addWorksheet('Dépenses');
@@ -78,7 +95,7 @@ export const exportAccountingToExcel = async (data, period) => {
   });
   
   // Generate and download
-  const fileName = `rapport_comptable_${period.replace(/\s/g, '_')}.xlsx`;
+  const fileName = `rapport_comptable_${periodFileSlug(period)}.xlsx`;
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
@@ -91,7 +108,7 @@ export const exportAccountingToExcel = async (data, period) => {
 
 // Export to PDF
 export const exportAccountingToPDF = (data, period) => {
-  const { invoices, expenses, plannedIncome, stats, expensesByCategory } = data;
+  const { invoices, expenses, stats, expensesByCategory, monthlyRows } = data;
   
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -120,6 +137,13 @@ export const exportAccountingToPDF = (data, period) => {
   yPos += 8;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
+
+  const ensureSpace = (needed = 12) => {
+    if (yPos > 280 - needed) {
+      doc.addPage();
+      yPos = 20;
+    }
+  };
   
   const summaryItems = [
     ['Revenus totaux (ventes payées)', formatCurrency(stats.totalRevenue)],
@@ -142,6 +166,31 @@ export const exportAccountingToPDF = (data, period) => {
   doc.rect(14, yPos - 5, pageWidth - 28, 15, 'F');
   doc.text(`Nombre de ventes: ${stats.salesCount}`, 20, yPos + 2);
   doc.text(`Nombre de dépenses: ${stats.expensesCount}`, pageWidth / 2, yPos + 2);
+
+  if (monthlyRows?.length > 1) {
+    yPos += 22;
+    ensureSpace(20);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Synthèse mensuelle', 14, yPos);
+    yPos += 8;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Mois', 14, yPos);
+    doc.text('Revenus', 70, yPos);
+    doc.text('Dépenses', 115, yPos);
+    doc.text('Solde', pageWidth - 14, yPos, { align: 'right' });
+    yPos += 6;
+    doc.setFont('helvetica', 'normal');
+    monthlyRows.forEach((row) => {
+      ensureSpace(8);
+      doc.text(row.label, 14, yPos);
+      doc.text(formatCurrency(row.revenue), 70, yPos);
+      doc.text(formatCurrency(row.totalExpenses), 115, yPos);
+      doc.text(formatCurrency(row.net), pageWidth - 14, yPos, { align: 'right' });
+      yPos += 6;
+    });
+  }
   
   // Expenses by category
   yPos += 20;
@@ -196,7 +245,7 @@ export const exportAccountingToPDF = (data, period) => {
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
   
-  const displayExpenses = expenses.slice(0, 15);
+  const displayExpenses = [...expenses].sort((a, b) => String(a.expense_date).localeCompare(String(b.expense_date)));
   displayExpenses.forEach((exp, index) => {
     if (yPos > 280) {
       doc.addPage();
@@ -215,14 +264,6 @@ export const exportAccountingToPDF = (data, period) => {
     doc.text(formatCurrency(exp.amount), pageWidth - 16, yPos, { align: 'right' });
     yPos += 6;
   });
-  
-  if (expenses.length > 15) {
-    yPos += 3;
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`... et ${expenses.length - 15} autres dépenses`, 14, yPos);
-    doc.setTextColor(0, 0, 0);
-  }
   
   // Sales section
   yPos += 15;
@@ -253,7 +294,7 @@ export const exportAccountingToPDF = (data, period) => {
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
   
-  const displayInvoices = invoices.slice(0, 15);
+  const displayInvoices = [...invoices].sort((a, b) => String(a.last_status_change || a.invoice_date).localeCompare(String(b.last_status_change || b.invoice_date)));
   displayInvoices.forEach((inv, index) => {
     if (yPos > 280) {
       doc.addPage();
@@ -275,14 +316,6 @@ export const exportAccountingToPDF = (data, period) => {
     yPos += 6;
   });
   
-  if (invoices.length > 15) {
-    yPos += 3;
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`... et ${invoices.length - 15} autres ventes`, 14, yPos);
-    doc.setTextColor(0, 0, 0);
-  }
-  
   // Footer
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
@@ -293,13 +326,13 @@ export const exportAccountingToPDF = (data, period) => {
   }
   
   // Save
-  const fileName = `rapport_comptable_${period.replace(/\s/g, '_')}.pdf`;
+  const fileName = `rapport_comptable_${periodFileSlug(period)}.pdf`;
   doc.save(fileName);
 };
 
 /** Export accounting data as CSV for external accountants */
 export const exportAccountingToCSV = (data, period) => {
-  const { invoices, expenses, stats } = data;
+  const { invoices, expenses, stats, monthlyRows } = data;
   const rows = [
     ['Rapport Comptable KPB Education', period],
     [],
@@ -308,6 +341,13 @@ export const exportAccountingToCSV = (data, period) => {
     ['Dépenses totales', stats.totalExpenses],
     ['Solde net', stats.netBalance],
     [],
+    ...(monthlyRows?.length
+      ? [
+          ['Mois', 'Revenus', 'Dépenses', 'Solde net', 'Ventes'],
+          ...monthlyRows.map((row) => [row.label, row.revenue, row.totalExpenses, row.net, row.salesCount]),
+          [],
+        ]
+      : []),
     ['Date paiement', 'N° Facture', 'Client', 'Commercial', 'Montant', 'Devise'],
     ...invoices.map((inv) => [
       inv.last_status_change ? new Date(inv.last_status_change).toLocaleDateString('fr-FR') : '',
@@ -335,7 +375,7 @@ export const exportAccountingToCSV = (data, period) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `comptabilite_kpb_${period.replace(/\s/g, '_')}.csv`;
+  link.download = `comptabilite_kpb_${periodFileSlug(period)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 };
