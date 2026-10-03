@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature, Copy, Loader2 } from 'lucide-react';
+import { invoiceToFormData } from '@/utils/invoiceFormData';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
@@ -50,6 +51,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const CRMPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAdmin } = useAdminCheck();
   const salesRepNames = useSalesRepNames();
@@ -260,6 +262,22 @@ const CRMPage = () => {
     } finally {
       setUploadingReceipt(false);
     }
+  };
+
+  const handleDownloadInvoice = (invoice) => {
+    const formData = invoiceToFormData(invoice);
+    if (!formData) {
+      toast.error('Impossible de préparer cette facture');
+      return;
+    }
+    sessionStorage.setItem('formData', JSON.stringify(formData));
+    navigate('/template', {
+      state: {
+        formData,
+        selectedTemplate: invoice.template_number || 1,
+        invoiceId: invoice.id,
+      },
+    });
   };
 
   const handleSendContract = async (invoice) => {
@@ -783,6 +801,15 @@ const CRMPage = () => {
                         phone={invoice.client_whatsapp}
                         message={buildInvoiceWhatsAppMessage(invoice)}
                       />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadInvoice(invoice)}
+                        className="p-1 md:p-2"
+                        title="Télécharger / voir la facture PDF"
+                      >
+                        <FileDown className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
+                      </Button>
                       {invoice.receipt_url && (
                         <Button
                           variant="ghost"

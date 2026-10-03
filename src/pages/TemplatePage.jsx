@@ -44,16 +44,18 @@ const TemplatePage = () => {
   }, [location.state]);
 
   const handleDownloadPDF = async () => {
-    if (formData && !isDownloading) {
-      setIsDownloading(true);
-      try {
-        await generatePDF(formData, currentTemplate);
-        toast.success("PDF généré avec succès");
-      } catch (error) {
-        toast.error(error.message || "Échec de génération du PDF. Réessayez.");
-      } finally {
-        setIsDownloading(false);
-      }
+    if (!formData || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      // Ensure the invoice is painted before capture (esp. after CRM reopen)
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await generatePDF(formData, currentTemplate);
+      toast.success("PDF téléchargé — vérifiez vos téléchargements");
+    } catch (error) {
+      console.error('Invoice PDF download failed:', error);
+      toast.error(error.message || "Échec de génération du PDF. Réessayez.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -108,7 +110,7 @@ const TemplatePage = () => {
             {isDownloading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Téléchargement...
+                Génération du PDF…
               </>
             ) : (
               'Télécharger PDF'

@@ -1,158 +1,192 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-// Utility to detect mobile devices
 const isMobileDevice = () => /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-// Utility to detect iOS devices
-const isIOSDevice = () => 
-  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isIOSDevice = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-export const generatePDF = async (invoiceData, templateNumber) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const existingInvoice = document.getElementById('invoice-root');
-      
-      if (!existingInvoice) {
-        throw new Error('Élément de facture introuvable. Veuillez réessayer.');
-      }
-
-      const isMobile = isMobileDevice();
-      
-      // Extended delay for mobile devices to ensure DOM is fully rendered
-      await new Promise(resolve => setTimeout(resolve, isMobile ? 1500 : 1000));
-      
-      // Store original styles for restoration
-      const originalStyles = {
-        width: existingInvoice.style.width,
-        height: existingInvoice.style.height,
-        maxWidth: existingInvoice.style.maxWidth,
-        transform: existingInvoice.style.transform
-      };
-      
-      // Optimize layout for mobile capture
-      if (isMobile) {
-        existingInvoice.style.width = '794px';
-        existingInvoice.style.height = 'auto';
-        existingInvoice.style.maxWidth = '794px';
-        existingInvoice.style.transform = 'scale(1)';
-        
-        // Wait for layout changes to apply
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      
-      // Capture with optimized settings for mobile
-      const canvas = await html2canvas(existingInvoice, {
-        scale: isMobile ? 2.5 : 2,
-        useCORS: true,
-        logging: false,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        scrollY: -window.scrollY,
-        scrollX: -window.scrollX,
-        windowWidth: existingInvoice.scrollWidth,
-        windowHeight: existingInvoice.scrollHeight,
-        removeContainer: false,
-        imageTimeout: 15000,
-        onclone: (clonedDoc) => {
-          const clonedElement = clonedDoc.getElementById('invoice-root');
-          if (clonedElement) {
-            clonedElement.style.display = 'block';
-            clonedElement.style.visibility = 'visible';
-          }
-        }
-      });
-      
-      // Restore original styles immediately
-      Object.keys(originalStyles).forEach(key => {
-        existingInvoice.style[key] = originalStyles[key];
-      });
-      
-      // Generate PDF with proper dimensions
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
-      
-      const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      
-      // Generate filename
-      const { number = '', date = '' } = invoiceData.invoice || {};
-      const { firstName = '', lastName = '' } = invoiceData.clientInfo || {};
-      const timestamp = new Date().getTime();
-
-      let fileName;
-      switch (templateNumber) {
-        case 1:
-          fileName = `Facture_KPB_${number || timestamp}.pdf`;
-          break;
-        case 2:
-          fileName = `KPB_${firstName}_${lastName}_${number || timestamp}.pdf`;
-          break;
-        case 3:
-          fileName = `Facture_${number || timestamp}_${date}.pdf`;
-          break;
-        default:
-          fileName = `facture_kpb_${timestamp}.pdf`;
-      }
-
-      // Download with mobile-optimized method
-      const arrayBuffer = pdf.output('arraybuffer');
-      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-      
-      try {
-        // Try Web Share API first (best for mobile)
-        if (isMobile && navigator.share && navigator.canShare) {
-          const file = new File([blob], fileName, { type: 'application/pdf' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({ 
-              files: [file], 
-              title: 'Facture KPB',
-              text: 'Votre facture est prête'
-            });
+const waitForImages = async (root) => {
+  const images = Array.from(root.querySelectorAll('img'));
+  await Promise.all(
+    images.map(
+      (img) =>
+        new Promise((resolve) => {
+          if (img.complete && img.naturalWidth > 0) {
             resolve();
             return;
           }
-        }
+          const done = () => resolve();
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+          // Safety timeout so a broken image never blocks download forever
+          setTimeout(done, 4000);
+        })
+    )
+  );
+};
 
-        // Fallback to blob URL download
-        const blobUrl = URL.createObjectURL(blob);
-        
-        if (isIOSDevice()) {
-          // iOS: open in new tab to allow "Save to Files"
-          const newWindow = window.open(blobUrl, '_blank');
-          if (!newWindow) {
-            // If popup blocked, try direct navigation
-            window.location.href = blobUrl;
+const buildFileName = (invoiceData, templateNumber) => {
+  const { number = '', date = '' } = invoiceData.invoice || {};
+  const { firstName = '', lastName = '' } = invoiceData.clientInfo || {};
+  const timestamp = Date.now();
+  const safe = (value) => String(value || '').replace(/[^\w.-]+/g, '_');
+
+  switch (templateNumber) {
+    case 1:
+      return `Facture_KPB_${safe(number) || timestamp}.pdf`;
+    case 2:
+      return `KPB_${safe(firstName)}_${safe(lastName)}_${safe(number) || timestamp}.pdf`;
+    case 3:
+      return `Facture_${safe(number) || timestamp}_${safe(date)}.pdf`;
+    default:
+      return `facture_kpb_${timestamp}.pdf`;
+  }
+};
+
+const triggerBlobDownload = async (blob, fileName) => {
+  // 1) Prefer classic download — most reliable for commercials on desktop/Android
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } finally {
+    // Keep blob alive briefly for slow browsers / iOS
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  }
+
+  // 2) On iOS Safari, <a download> is unreliable — also open the PDF
+  if (isIOSDevice()) {
+    const openUrl = URL.createObjectURL(blob);
+    const opened = window.open(openUrl, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      // Popup blocked: offer share sheet if available
+      if (navigator.share && navigator.canShare) {
+        try {
+          const file = new File([blob], fileName, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Facture KPB',
+              text: 'Votre facture est prête',
+            });
           }
-        } else {
-          // Android and Desktop: force download
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = fileName;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          
-          // Cleanup
-          setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(blobUrl);
-          }, 100);
+        } catch (err) {
+          // User cancelled share — not a hard failure
+          if (err?.name !== 'AbortError') {
+            throw err;
+          }
         }
-        
-        resolve();
-      } catch (shareError) {
-        // Final fallback: jsPDF's built-in save
-        pdf.save(fileName);
-        resolve();
       }
-      
-    } catch (error) {
-      reject(new Error(error.message || 'Échec de génération du PDF. Veuillez réessayer.'));
     }
-  });
+    setTimeout(() => URL.revokeObjectURL(openUrl), 60_000);
+  }
+};
+
+/**
+ * Capture the on-screen invoice (#invoice-root) into a downloadable PDF.
+ * Uses an off-DOM clone so AppLayout overflow / mobile scaling cannot break capture.
+ */
+export const generatePDF = async (invoiceData, templateNumber) => {
+  const existingInvoice = document.getElementById('invoice-root');
+  if (!existingInvoice) {
+    throw new Error('Élément de facture introuvable. Rouvrez la facture puis réessayez.');
+  }
+
+  const isMobile = isMobileDevice();
+  await waitForImages(existingInvoice);
+  // Let fonts/layout settle
+  await new Promise((r) => setTimeout(r, isMobile ? 400 : 150));
+
+  // Off-screen clone at fixed A4 width — avoids clipping from sidebar/layout
+  const cloneHost = document.createElement('div');
+  cloneHost.setAttribute('aria-hidden', 'true');
+  cloneHost.style.cssText = [
+    'position:fixed',
+    'left:-10000px',
+    'top:0',
+    'width:794px',
+    'background:#ffffff',
+    'z-index:-1',
+    'pointer-events:none',
+  ].join(';');
+
+  const clone = existingInvoice.cloneNode(true);
+  clone.id = 'invoice-root-pdf-clone';
+  clone.style.cssText = [
+    'width:794px',
+    'max-width:794px',
+    'height:auto',
+    'transform:none',
+    'display:block',
+    'visibility:visible',
+    'background:#ffffff',
+  ].join(';');
+  cloneHost.appendChild(clone);
+  document.body.appendChild(cloneHost);
+
+  try {
+    await waitForImages(clone);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const canvas = await html2canvas(clone, {
+      scale: isMobile ? 1.75 : 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: 794,
+      windowWidth: 794,
+      scrollX: 0,
+      scrollY: 0,
+      imageTimeout: 15000,
+      onclone: (clonedDoc) => {
+        const el = clonedDoc.getElementById('invoice-root-pdf-clone');
+        if (el) {
+          el.style.display = 'block';
+          el.style.visibility = 'visible';
+          el.style.width = '794px';
+          el.style.maxWidth = '794px';
+          el.style.transform = 'none';
+        }
+      },
+    });
+
+    if (!canvas.width || !canvas.height) {
+      throw new Error('Capture PDF vide. Rechargez la page et réessayez.');
+    }
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const pdfWidth = 210; // A4 mm
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    const pdf = new jsPDF('p', 'mm', [pdfWidth, Math.max(pdfHeight, 1)]);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+
+    const fileName = buildFileName(invoiceData, templateNumber);
+    const blob = pdf.output('blob');
+
+    try {
+      await triggerBlobDownload(blob, fileName);
+    } catch {
+      // Last resort — jsPDF native save
+      pdf.save(fileName);
+    }
+  } catch (error) {
+    const msg = error?.message || '';
+    if (/tainted|SecurityError|toDataURL/i.test(msg)) {
+      throw new Error(
+        'Impossible de générer le PDF (image bloquée). Rechargez la page et réessayez.'
+      );
+    }
+    throw new Error(msg || 'Échec de génération du PDF. Veuillez réessayer.');
+  } finally {
+    cloneHost.remove();
+  }
 };
