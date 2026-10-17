@@ -103,6 +103,8 @@ npm run test     # Tests unitaires (Vitest)
 
 L'application peut être déployée via GPT Engineer/Lovable ou sur Netlify/Vercel avec les variables d'environnement Supabase configurées.
 
+Base de données : les migrations `drizzle/migrations` ne contiennent que la structure. Après `0006` à `0009`, exécuter une fois `drizzle/donnees/donnees_initiales.sql` (commerciaux, types de procédure, étapes, profils, réglages). Le bucket privé `contract-pdfs` est créé par la fonction `sign-contract` au premier contrat signé.
+
 ## Contact
 
 KPB Education — 8 Rue André Vasseur, 31200 Toulouse — SIRET 851 365 908 00025

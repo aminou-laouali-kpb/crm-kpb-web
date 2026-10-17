@@ -16,11 +16,6 @@ ALTER TABLE public.contract_signature_requests
   ADD COLUMN IF NOT EXISTS invoice_id uuid REFERENCES public.invoices(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS reminder_count integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS last_reminded_at timestamptz;
-UPDATE public.contract_signature_requests
-SET invoice_id = (prefill->>'invoice_id')::uuid
-WHERE invoice_id IS NULL
-  AND prefill->>'invoice_id' ~ '^[0-9a-f-]{36}$'
-  AND EXISTS (SELECT 1 FROM public.invoices i WHERE i.id = (prefill->>'invoice_id')::uuid);
 CREATE INDEX IF NOT EXISTS contract_signature_requests_invoice_idx ON public.contract_signature_requests (invoice_id);
 
 ALTER TABLE public.contract_signatures
@@ -28,18 +23,6 @@ ALTER TABLE public.contract_signatures
 
 ALTER TABLE public.dossiers
   ADD COLUMN IF NOT EXISTS contract_status text NOT NULL DEFAULT 'non_envoye';
-
-ALTER TABLE public.dossier_events DROP CONSTRAINT IF EXISTS dossier_events_type_check;
-ALTER TABLE public.dossier_events ADD CONSTRAINT dossier_events_type_check CHECK (type IN (
-  'creation', 'stage_change', 'daily_update', 'client_contact', 'note',
-  'commercial_note', 'blocage', 'deblocage', 'status_change', 'assignment',
-  'info_update', 'payment', 'contract'
-));
-
--- Suivi des contrats : factures enregistrées à partir de cette date
-INSERT INTO public.app_settings (key, value)
-VALUES ('contract_tracking_since', to_jsonb(to_char(current_date - 30, 'YYYY-MM-DD')))
-ON CONFLICT (key) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 2. État du contrat d'une facture
@@ -641,8 +624,3 @@ DROP TRIGGER IF EXISTS trg_contract_request_change ON public.contract_signature_
 CREATE TRIGGER trg_contract_request_change
   AFTER INSERT OR UPDATE OF status, opened_at ON public.contract_signature_requests
   FOR EACH ROW EXECUTE FUNCTION public.on_contract_request_change();
-
--- Reprise : statut des dossiers existants
-UPDATE public.dossiers
-SET contract_status = public.invoice_contract_state(invoice_id)
-WHERE invoice_id IS NOT NULL;

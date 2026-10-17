@@ -5,6 +5,10 @@
 -- signature de contrat n'y ont jamais été créées. Ce fichier les (re)crée de façon
 -- idempotente (sans effet si elles existent déjà), à partir des définitions de
 -- l'historique, avant les migrations 0007 à 0009 qui en dépendent.
+--
+-- Migrations 0006 à 0009 : structure uniquement. Les données de départ
+-- (commerciaux, types de procédure, étapes, réglages, reprises) sont dans
+-- drizzle/donnees/donnees_initiales.sql, à exécuter juste après.
 
 -- ---------------------------------------------------------------------------
 -- 1. Nouveaux rôles (espace Dossiers)
@@ -17,18 +21,6 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ---------------------------------------------------------------------------
 -- 2. Commerciaux : liste modifiable (au lieu de l'enum figé sales_rep)
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'invoices'
-      AND column_name = 'sales_representative' AND udt_name = 'sales_rep'
-  ) THEN
-    ALTER TABLE public.invoices
-      ALTER COLUMN sales_representative TYPE text USING sales_representative::text;
-  END IF;
-END $$;
-
 CREATE TABLE IF NOT EXISTS public.sales_reps (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   name text NOT NULL UNIQUE,
@@ -51,21 +43,35 @@ CREATE POLICY "Admins can manage sales reps"
   WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sales_reps TO authenticated;
+GRANT ALL ON public.sales_reps TO service_role;
 
--- Commerciaux connus (Donald : clients transférés à Nadia, désactivé)
-INSERT INTO public.sales_reps (name, active) VALUES
-  ('Josphin', true),
-  ('Nadia', true),
-  ('Richard', true),
-  ('Donald', false)
-ON CONFLICT (name) DO NOTHING;
+-- La colonne invoices.sales_representative reste du type énuméré sales_rep :
+-- chaque commercial ajouté à la liste y est ajouté automatiquement.
+CREATE OR REPLACE FUNCTION public.sync_sales_rep_enum()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF to_regtype('public.sales_rep') IS NOT NULL
+     AND COALESCE(trim(NEW.name), '') <> ''
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_enum e
+       WHERE e.enumtypid = 'public.sales_rep'::regtype AND e.enumlabel = NEW.name
+     ) THEN
+    EXECUTE format('ALTER TYPE public.sales_rep ADD VALUE IF NOT EXISTS %L', NEW.name);
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
--- Tout nom déjà utilisé sur une facture existe dans la liste
-INSERT INTO public.sales_reps (name, active)
-SELECT DISTINCT i.sales_representative::text, false
-FROM public.invoices i
-WHERE COALESCE(i.sales_representative::text, '') <> ''
-ON CONFLICT (name) DO NOTHING;
+REVOKE ALL ON FUNCTION public.sync_sales_rep_enum() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_sync_sales_rep_enum ON public.sales_reps;
+CREATE TRIGGER trg_sync_sales_rep_enum
+  AFTER INSERT OR UPDATE OF name ON public.sales_reps
+  FOR EACH ROW EXECUTE FUNCTION public.sync_sales_rep_enum();
 
 -- ---------------------------------------------------------------------------
 -- 3. Liens de signature de contrat (demandes, statut, jetons)
@@ -588,11 +594,8 @@ $$;
 REVOKE ALL ON FUNCTION public.get_public_contract_pdf_path(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_contract_pdf_path(text) TO anon, authenticated;
 
--- PDF signés : dépôt par la fonction serveur uniquement, lecture par l'équipe commerciale
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('contract-pdfs', 'contract-pdfs', false)
-ON CONFLICT (id) DO NOTHING;
-
+-- PDF signés (bucket privé contract-pdfs, créé par la fonction serveur sign-contract) :
+-- dépôt par la fonction serveur uniquement, lecture par l'équipe commerciale
 DROP POLICY IF EXISTS "Authenticated can upload contract PDFs" ON storage.objects;
 DROP POLICY IF EXISTS "Anon can upload signed contract PDF" ON storage.objects;
 DROP POLICY IF EXISTS "Staff can read contract PDFs" ON storage.objects;
@@ -606,7 +609,14 @@ CREATE POLICY "Staff can read contract PDFs"
     )
   );
 
--- Configuration du contrat (variables KPB) : clé présente pour la page Paramètres
-INSERT INTO public.app_settings (key, value)
-VALUES ('contract_config', '{}'::jsonb)
-ON CONFLICT (key) DO NOTHING;
+-- ---------------------------------------------------------------------------
+-- 5. Droits d'accès des nouvelles tables
+--    (écritures publiques uniquement via les fonctions ci-dessus)
+-- ---------------------------------------------------------------------------
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.contract_signature_requests TO authenticated;
+GRANT SELECT ON public.contract_rate_limit_events, public.contract_token_access_logs TO authenticated;
+REVOKE ALL ON public.contract_signature_requests, public.contract_rate_limit_events,
+  public.contract_token_access_logs FROM anon;
+GRANT ALL ON public.contract_signature_requests, public.contract_rate_limit_events,
+  public.contract_token_access_logs TO service_role;
+GRANT SELECT ON public.v_contract_status TO service_role;
