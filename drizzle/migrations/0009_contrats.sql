@@ -332,7 +332,7 @@ CREATE OR REPLACE FUNCTION public.submit_contract_request_signature(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_req record;
