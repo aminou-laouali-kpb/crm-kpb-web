@@ -34,19 +34,7 @@ USING (public.has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
-
--- Reprise : un profil par compte existant, rattaché au commercial de même email
-INSERT INTO public.profiles (user_id, email, full_name, sales_rep_id)
-SELECT DISTINCT ON (u.id)
-  u.id,
-  u.email,
-  COALESCE(sr.name, NULLIF(u.raw_user_meta_data->>'full_name', '')),
-  sr.id
-FROM auth.users u
-LEFT JOIN public.sales_reps sr
-  ON sr.email IS NOT NULL AND lower(trim(sr.email)) = lower(u.email)
-ORDER BY u.id, sr.created_at
-ON CONFLICT (user_id) DO NOTHING;
+GRANT ALL ON public.profiles TO service_role;
 
 -- Un compte désactivé perd tous ses droits, partout où has_role est utilisé
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
@@ -274,20 +262,7 @@ USING (public.has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.procedure_types TO authenticated;
-
-INSERT INTO public.procedure_types (code, label, sort_order) VALUES
-  ('france_privee', 'France — écoles privées', 10),
-  ('campus_france', 'France — Campus France (universités publiques)', 20),
-  ('belgique', 'Belgique', 30),
-  ('canada', 'Canada', 40),
-  ('usa', 'États-Unis', 50),
-  ('allemagne', 'Allemagne', 60),
-  ('uk_langue', 'Royaume-Uni — cours d''anglais', 70),
-  ('bourse_eiffel', 'Bourse Eiffel', 80),
-  ('bourse', 'Bourse d''études (autres)', 90),
-  ('visa', 'Visa uniquement', 100),
-  ('autre', 'Autre', 999)
-ON CONFLICT (code) DO NOTHING;
+GRANT ALL ON public.procedure_types TO service_role;
 
 ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS procedure_type text REFERENCES public.procedure_types(code) ON UPDATE CASCADE,
@@ -568,11 +543,6 @@ BEGIN
 END $$;
 ALTER TABLE public.sales_rep_points
   ADD CONSTRAINT sales_rep_points_position_check CHECK (position >= 1);
-
--- Seuils de relance partagés par tous (auparavant dans le navigateur de l'admin)
-INSERT INTO public.app_settings (key, value)
-VALUES ('follow_up_days', '[7, 14]'::jsonb)
-ON CONFLICT (key) DO NOTHING;
 
 -- Index utilisés par les règles d'accès et les recherches
 CREATE INDEX IF NOT EXISTS invoices_user_id_idx ON public.invoices (user_id);

@@ -16,28 +16,12 @@ CREATE TABLE IF NOT EXISTS public.dossier_stages (
   sort_order integer NOT NULL
 );
 
-INSERT INTO public.dossier_stages (code, label, short_label, phase, sort_order) VALUES
-  ('non_demarre', 'Candidature non démarrée', 'Non démarrée', 'admission', 0),
-  ('infos_demandees', 'Informations demandées', 'Infos demandées', 'admission', 1),
-  ('infos_recues', 'Informations de candidature reçues', 'Infos reçues', 'admission', 2),
-  ('remplissage_en_cours', 'Remplissage du formulaire en cours', 'Remplissage', 'admission', 3),
-  ('remplissage_termine', 'Remplissage du formulaire terminé', 'Rempli', 'admission', 4),
-  ('dossier_finalise', 'Dossier finalisé / soumis — en attente de réponse', 'Soumis', 'admission', 5),
-  ('reponse_recue', 'Réponse reçue (admission / bourse)', 'Réponse', 'admission', 6),
-  ('visa_demarre', 'Procédure visa démarrée — attente des documents', 'Visa démarré', 'visa', 7),
-  ('visa_demande', 'Visa demandé', 'Visa demandé', 'visa', 8),
-  ('visa_resultat', 'Visa reçu / refusé', 'Visa : résultat', 'visa', 9)
-ON CONFLICT (code) DO UPDATE SET
-  label = EXCLUDED.label,
-  short_label = EXCLUDED.short_label,
-  phase = EXCLUDED.phase,
-  sort_order = EXCLUDED.sort_order;
-
 ALTER TABLE public.dossier_stages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated read dossier stages" ON public.dossier_stages;
 CREATE POLICY "Authenticated read dossier stages"
 ON public.dossier_stages FOR SELECT TO authenticated USING (true);
 GRANT SELECT ON public.dossier_stages TO authenticated;
+GRANT ALL ON public.dossier_stages TO service_role;
 
 -- Affectation automatique : agent responsable (et intervenants) par procédure
 ALTER TABLE public.procedure_types
@@ -104,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.dossier_events (
   type text NOT NULL CHECK (type IN (
     'creation', 'stage_change', 'daily_update', 'client_contact', 'note',
     'commercial_note', 'blocage', 'deblocage', 'status_change', 'assignment',
-    'info_update', 'payment'
+    'info_update', 'payment', 'contract'
   )),
   body text,
   from_stage text,
@@ -329,6 +313,7 @@ USING (EXISTS (
 REVOKE INSERT, UPDATE, DELETE ON public.dossiers, public.dossier_events, public.dossier_collaborators FROM authenticated, anon;
 GRANT SELECT ON public.dossiers, public.dossier_events, public.dossier_collaborators TO authenticated;
 GRANT ALL ON public.dossiers, public.dossier_events, public.dossier_collaborators TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.dossier_ref_seq TO service_role;
 
 -- L'équipe de traitement doit pouvoir lister les agents (noms) pour l'affectation
 -- (profiles est déjà lisible par tout compte ayant un rôle — lot 1).
@@ -402,7 +387,7 @@ BEGIN
         client_id = COALESCE(client_id, v_inv.client_id),
         procedure_type = COALESCE(procedure_type, v_inv.procedure_type),
         payment_status = CASE WHEN v_partial THEN 'partiel' ELSE 'paye' END,
-        sales_rep = COALESCE(v_inv.sales_representative, sales_rep),
+        sales_rep = COALESCE(v_inv.sales_representative::text, sales_rep),
         service_description = COALESCE(service_description, v_inv.service_description),
         updated_at = now()
     WHERE id = v_dossier_id;
@@ -427,7 +412,7 @@ BEGIN
     COALESCE(NULLIF(trim(v_inv.client_last_name), ''), ''),
     lower(v_inv.client_email), v_inv.client_whatsapp,
     v_inv.procedure_type, v_inv.destination_country, COALESCE(v_inv.includes_visa, false),
-    v_inv.service_description, v_inv.sales_representative,
+    v_inv.service_description, v_inv.sales_representative::text,
     'paiement', CASE WHEN v_partial THEN 'partiel' ELSE 'paye' END,
     v_route.default_assignee_id, COALESCE(auth.uid(), v_inv.user_id)
   )
@@ -440,7 +425,7 @@ BEGIN
   PERFORM public._dossier_log(
     v_dossier_id, 'creation',
     format('Dossier ouvert automatiquement : paiement validé par %s (facture %s, %s %s).',
-           COALESCE(v_inv.sales_representative, 'le commercial'), v_inv.invoice_number, v_inv.amount, v_inv.currency),
+           COALESCE(v_inv.sales_representative::text, 'le commercial'), v_inv.invoice_number, v_inv.amount, v_inv.currency),
     NULL, 'non_demarre', jsonb_build_object('invoice_id', p_invoice_id, 'assigned_to', v_route.default_assignee_id)
   );
 

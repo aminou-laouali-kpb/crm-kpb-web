@@ -214,6 +214,14 @@ class HttpError extends Error {
   }
 }
 
+// Bucket privé des contrats signés : créé au premier dépôt s'il n'existe pas encore
+async function ensureContractBucket() {
+  const { data } = await service.storage.getBucket('contract-pdfs');
+  if (data) return;
+  const { error } = await service.storage.createBucket('contract-pdfs', { public: false });
+  if (error && !/already exists/i.test(error.message)) throw error;
+}
+
 async function maybeSignedPdfUrl(pdfPath?: string | null) {
   if (!pdfPath) return null;
   const { data, error } = await service.storage
@@ -301,6 +309,7 @@ serve(async (req) => {
         signatureImage: context.signature.signature_image,
       });
 
+      await ensureContractBucket();
       const { error: uploadError } = await service.storage
         .from('contract-pdfs')
         .upload(pdfPath, pdfBytes, { contentType: 'application/pdf', upsert: true });
