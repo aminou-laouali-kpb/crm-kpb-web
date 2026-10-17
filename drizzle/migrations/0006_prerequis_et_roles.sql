@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS public.sales_reps (
   updated_at timestamptz DEFAULT now()
 );
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.sales_reps TO authenticated;
+GRANT ALL ON public.sales_reps TO service_role;
 ALTER TABLE public.sales_reps ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated users can view sales reps" ON public.sales_reps;
@@ -42,8 +44,6 @@ CREATE POLICY "Admins can manage sales reps"
   USING (public.has_role(auth.uid(), 'admin'::app_role))
   WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.sales_reps TO authenticated;
-GRANT ALL ON public.sales_reps TO service_role;
 
 -- La colonne invoices.sales_representative reste du type énuméré sales_rep :
 -- chaque commercial ajouté à la liste y est ajouté automatiquement.
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS public.contract_signature_requests (
   prefill jsonb NOT NULL,
   status text NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'signed', 'expired', 'revoked')),
-  created_by uuid REFERENCES auth.users(id),
+  created_by uuid,
   expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 days'),
   opened_at timestamptz,
   signed_at timestamptz,
@@ -104,6 +104,8 @@ CREATE INDEX IF NOT EXISTS contract_signature_requests_status_idx
 CREATE UNIQUE INDEX IF NOT EXISTS contract_signature_requests_token_uidx
   ON public.contract_signature_requests (token);
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.contract_signature_requests TO authenticated;
+GRANT ALL ON public.contract_signature_requests TO service_role;
 ALTER TABLE public.contract_signature_requests ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Staff can manage signature requests" ON public.contract_signature_requests;
@@ -171,6 +173,7 @@ LEFT JOIN LATERAL (
 LEFT JOIN public.contract_signatures s ON s.id = r.signature_id;
 
 GRANT SELECT ON public.v_contract_status TO authenticated;
+GRANT SELECT ON public.v_contract_status TO service_role;
 
 -- 4. Helpers
 CREATE OR REPLACE FUNCTION public.generate_signing_token()
@@ -194,6 +197,8 @@ CREATE TABLE IF NOT EXISTS public.contract_rate_limit_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+GRANT SELECT ON public.contract_rate_limit_events TO authenticated;
+GRANT ALL ON public.contract_rate_limit_events TO service_role;
 ALTER TABLE public.contract_rate_limit_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins read contract rate limit events" ON public.contract_rate_limit_events;
@@ -250,6 +255,8 @@ CREATE TABLE IF NOT EXISTS public.contract_token_access_logs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+GRANT SELECT ON public.contract_token_access_logs TO authenticated;
+GRANT ALL ON public.contract_token_access_logs TO service_role;
 ALTER TABLE public.contract_token_access_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins read token access logs" ON public.contract_token_access_logs;
 CREATE POLICY "Admins read token access logs"
@@ -608,15 +615,3 @@ CREATE POLICY "Staff can read contract PDFs"
       OR public.has_role(auth.uid(), 'commercial'::app_role)
     )
   );
-
--- ---------------------------------------------------------------------------
--- 5. Droits d'accès des nouvelles tables
---    (écritures publiques uniquement via les fonctions ci-dessus)
--- ---------------------------------------------------------------------------
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.contract_signature_requests TO authenticated;
-GRANT SELECT ON public.contract_rate_limit_events, public.contract_token_access_logs TO authenticated;
-REVOKE ALL ON public.contract_signature_requests, public.contract_rate_limit_events,
-  public.contract_token_access_logs FROM anon;
-GRANT ALL ON public.contract_signature_requests, public.contract_rate_limit_events,
-  public.contract_token_access_logs TO service_role;
-GRANT SELECT ON public.v_contract_status TO service_role;

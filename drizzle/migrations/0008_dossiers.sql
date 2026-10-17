@@ -16,22 +16,23 @@ CREATE TABLE IF NOT EXISTS public.dossier_stages (
   sort_order integer NOT NULL
 );
 
+GRANT SELECT ON public.dossier_stages TO authenticated;
+GRANT ALL ON public.dossier_stages TO service_role;
 ALTER TABLE public.dossier_stages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated read dossier stages" ON public.dossier_stages;
 CREATE POLICY "Authenticated read dossier stages"
 ON public.dossier_stages FOR SELECT TO authenticated USING (true);
-GRANT SELECT ON public.dossier_stages TO authenticated;
-GRANT ALL ON public.dossier_stages TO service_role;
 
 -- Affectation automatique : agent responsable (et intervenants) par procédure
 ALTER TABLE public.procedure_types
-  ADD COLUMN IF NOT EXISTS default_assignee_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS default_assignee_id uuid REFERENCES public.profiles(user_id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS default_collaborator_ids uuid[] NOT NULL DEFAULT ARRAY[]::uuid[];
 
 -- ---------------------------------------------------------------------------
 -- 2. Dossiers
 -- ---------------------------------------------------------------------------
 CREATE SEQUENCE IF NOT EXISTS public.dossier_ref_seq;
+GRANT USAGE, SELECT ON SEQUENCE public.dossier_ref_seq TO service_role;
 
 CREATE TABLE IF NOT EXISTS public.dossiers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -57,13 +58,13 @@ CREATE TABLE IF NOT EXISTS public.dossiers (
   closure_outcome text CHECK (closure_outcome IN ('succes', 'echec')),
   is_blocked boolean NOT NULL DEFAULT false,
   blocked_reason text,
-  assigned_to uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  assigned_to uuid REFERENCES public.profiles(user_id) ON DELETE SET NULL,
   next_action text,
   next_action_due date,
   target_date date,
   last_update_at timestamptz,
   last_update_work_date date,
-  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   closed_at timestamptz
@@ -75,7 +76,7 @@ CREATE INDEX IF NOT EXISTS dossiers_student_email_idx ON public.dossiers (lower(
 
 CREATE TABLE IF NOT EXISTS public.dossier_collaborators (
   dossier_id uuid NOT NULL REFERENCES public.dossiers(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
   PRIMARY KEY (dossier_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS dossier_collaborators_user_idx ON public.dossier_collaborators (user_id);
@@ -84,7 +85,7 @@ CREATE INDEX IF NOT EXISTS dossier_collaborators_user_idx ON public.dossier_coll
 CREATE TABLE IF NOT EXISTS public.dossier_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   dossier_id uuid NOT NULL REFERENCES public.dossiers(id) ON DELETE CASCADE,
-  author_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  author_id uuid,
   type text NOT NULL CHECK (type IN (
     'creation', 'stage_change', 'daily_update', 'client_contact', 'note',
     'commercial_note', 'blocage', 'deblocage', 'status_change', 'assignment',
@@ -97,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.dossier_events (
   work_date date NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   edited_at timestamptz,
-  edited_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
+  edited_by uuid
 );
 CREATE INDEX IF NOT EXISTS dossier_events_dossier_idx ON public.dossier_events (dossier_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS dossier_events_author_date_idx ON public.dossier_events (author_id, work_date);
@@ -283,8 +284,14 @@ CREATE TRIGGER trg_guard_dossier_events
 -- ---------------------------------------------------------------------------
 -- 4. Règles d'accès : lecture selon le rôle, écriture uniquement via les RPC
 -- ---------------------------------------------------------------------------
+GRANT SELECT ON public.dossiers TO authenticated;
+GRANT ALL ON public.dossiers TO service_role;
 ALTER TABLE public.dossiers ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.dossier_events TO authenticated;
+GRANT ALL ON public.dossier_events TO service_role;
 ALTER TABLE public.dossier_events ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.dossier_collaborators TO authenticated;
+GRANT ALL ON public.dossier_collaborators TO service_role;
 ALTER TABLE public.dossier_collaborators ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Dossiers visibles selon le rôle" ON public.dossiers;
@@ -310,9 +317,6 @@ USING (EXISTS (
     AND public.dossier_visible(auth.uid(), d.id, d.procedure_type, d.assigned_to)
 ));
 
-REVOKE INSERT, UPDATE, DELETE ON public.dossiers, public.dossier_events, public.dossier_collaborators FROM authenticated, anon;
-GRANT SELECT ON public.dossiers, public.dossier_events, public.dossier_collaborators TO authenticated;
-GRANT ALL ON public.dossiers, public.dossier_events, public.dossier_collaborators TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE public.dossier_ref_seq TO service_role;
 
 -- L'équipe de traitement doit pouvoir lister les agents (noms) pour l'affectation
@@ -335,7 +339,7 @@ BEGIN
   INSERT INTO public.dossier_collaborators (dossier_id, user_id)
   SELECT p_dossier_id, u
   FROM unnest(COALESCE(p_user_ids, ARRAY[]::uuid[])) AS u
-  WHERE EXISTS (SELECT 1 FROM auth.users au WHERE au.id = u)
+  WHERE EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.user_id = u)
   ON CONFLICT DO NOTHING;
 END;
 $$;

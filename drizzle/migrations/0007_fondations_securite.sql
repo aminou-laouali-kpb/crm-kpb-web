@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_sales_rep_id_key
   ON public.profiles (sales_rep_id) WHERE sales_rep_id IS NOT NULL;
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
+GRANT ALL ON public.profiles TO service_role;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users read profiles" ON public.profiles;
@@ -33,8 +35,6 @@ ON public.profiles FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
-GRANT ALL ON public.profiles TO service_role;
 
 -- Un compte désactivé perd tous ses droits, partout où has_role est utilisé
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
@@ -248,6 +248,8 @@ CREATE TABLE IF NOT EXISTS public.procedure_types (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.procedure_types TO authenticated;
+GRANT ALL ON public.procedure_types TO service_role;
 ALTER TABLE public.procedure_types ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated read procedure types" ON public.procedure_types;
@@ -261,8 +263,6 @@ ON public.procedure_types FOR ALL TO authenticated
 USING (public.has_role(auth.uid(), 'admin'::app_role))
 WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.procedure_types TO authenticated;
-GRANT ALL ON public.procedure_types TO service_role;
 
 ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS procedure_type text REFERENCES public.procedure_types(code) ON UPDATE CASCADE,
