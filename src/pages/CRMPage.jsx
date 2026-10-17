@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature, Copy, Loader2 } from 'lucide-react';
+import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
@@ -14,7 +14,9 @@ import { getFollowUpLevel, getPrimaryFollowUpThreshold } from '@/constants/follo
 import { useFollowUpDays } from '@/hooks/useFollowUpDays';
 import { useProcedureTypes } from '@/hooks/useProcedureTypes';
 import { useInvoices } from '@/hooks/useInvoices';
-import { useSendContractFromInvoice } from '@/hooks/useClients';
+import { useContractFollowups } from '@/hooks/useContracts';
+import SendContractDialog from '@/components/contracts/SendContractDialog';
+import { getContractState } from '@/utils/contracts';
 import { useSalesRepNames } from '@/hooks/useSalesReps';
 import AppLayout from '@/components/layout/AppLayout';
 import WhatsAppLink from '@/components/WhatsAppLink';
@@ -82,11 +84,12 @@ const CRMPage = () => {
   const [isPartial, setIsPartial] = useState(false);
   const [partialForm, setPartialForm] = useState({ total_amount: '', remaining_amount: '', due_date: '' });
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const sendContract = useSendContractFromInvoice();
-  const [contractDialogOpen, setContractDialogOpen] = useState(false);
-  const [contractLink, setContractLink] = useState(null);
   const [contractInvoice, setContractInvoice] = useState(null);
-  const [sendingContractId, setSendingContractId] = useState(null);
+  const { data: contractRows = [] } = useContractFollowups({ includeSigned: true });
+  const contractStateByInvoice = useMemo(
+    () => Object.fromEntries(contractRows.map((r) => [r.invoice_id, r.contract_state])),
+    [contractRows]
+  );
   const [editForm, setEditForm] = useState({
     client_first_name: '',
     client_last_name: '',
@@ -258,13 +261,13 @@ const CRMPage = () => {
       setReceiptFile(null);
       fetchInvoices();
 
-      // Contrat électronique : proposé juste après le paiement
-      if (paidInvoice) {
+      // Contrat électronique : rappelé au paiement s'il n'est pas encore signé
+      if (paidInvoice && contractStateByInvoice[paidInvoiceId] !== 'signe' && !isGuideUltime(paidInvoice)) {
         toast.message("Facture payée — envoyer le contrat ?", {
           description: "Envoyez au client le lien de signature électronique du contrat.",
           action: {
             label: "Envoyer le contrat",
-            onClick: () => handleSendContract({ ...paidInvoice, id: paidInvoiceId, status: 'paid' }),
+            onClick: () => setContractInvoice({ ...paidInvoice, id: paidInvoiceId, status: 'paid' }),
           },
           duration: 15000,
         });
@@ -274,42 +277,6 @@ const CRMPage = () => {
     } finally {
       setUploadingReceipt(false);
     }
-  };
-
-  const handleSendContract = async (invoice) => {
-    if (!invoice?.id) return;
-    setSendingContractId(invoice.id);
-    try {
-      const result = await sendContract.mutateAsync({ invoiceId: invoice.id });
-      setContractInvoice(invoice);
-      setContractLink(result);
-      setContractDialogOpen(true);
-    } catch {
-      // toast handled in the hook
-    } finally {
-      setSendingContractId(null);
-    }
-  };
-
-  const handleCopyContractLink = async () => {
-    if (!contractLink?.url) return;
-    try {
-      await navigator.clipboard.writeText(contractLink.url);
-      toast.success('Lien copié');
-    } catch {
-      toast.error('Impossible de copier le lien');
-    }
-  };
-
-  const buildContractWhatsAppUrl = () => {
-    if (!contractLink?.url || !contractInvoice) return '#';
-    const phone = String(contractInvoice.client_whatsapp || '').replace(/[^\d]/g, '');
-    const message =
-      `Bonjour ${contractInvoice.client_first_name},\n\n` +
-      `Nous avons bien reçu votre paiement (facture ${contractInvoice.invoice_number}). ` +
-      `Voici votre contrat à signer électroniquement :\n${contractLink.url}\n\n` +
-      `Le lien est valable 30 jours.\n\nKPB Education`;
-    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   };
 
   const handleViewReceipt = async (receiptPath) => {
@@ -812,22 +779,25 @@ const CRMPage = () => {
                           <Receipt className="h-3 w-3 md:h-4 md:w-4 text-primary" />
                         </Button>
                       )}
-                      {invoice.status === 'paid' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSendContract(invoice)}
-                          disabled={sendingContractId === invoice.id}
-                          className="p-1 md:p-2"
-                          title="Envoyer le contrat à signer"
-                        >
-                          {sendingContractId === invoice.id ? (
-                            <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                          ) : (
-                            <FileSignature className="h-3 w-3 md:h-4 md:w-4 text-emerald-600" />
-                          )}
-                        </Button>
-                      )}
+                      {!isGuideUltime(invoice) && (() => {
+                        const state = contractStateByInvoice[invoice.id] || 'non_envoye';
+                        const signed = state === 'signe';
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => !signed && setContractInvoice(invoice)}
+                            className="p-1 md:p-2"
+                            title={signed ? 'Contrat signé' : `${getContractState(state).label} — envoyer le contrat`}
+                          >
+                            <FileSignature
+                              className={`h-3 w-3 md:h-4 md:w-4 ${
+                                signed ? 'text-emerald-600' : state === 'non_envoye' ? 'text-slate-400' : 'text-amber-500'
+                              }`}
+                            />
+                          </Button>
+                        );
+                      })()}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1137,47 +1107,11 @@ const CRMPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Contract Link Dialog */}
-      <Dialog open={contractDialogOpen} onOpenChange={(open) => {
-        setContractDialogOpen(open);
-        if (!open) {
-          setContractLink(null);
-          setContractInvoice(null);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Contrat prêt à envoyer</DialogTitle>
-            <DialogDescription>
-              {contractInvoice
-                ? `Envoyez ce lien de signature à ${contractInvoice.client_first_name} ${contractInvoice.client_last_name}. Le client complétera ses informations et signera en ligne.`
-                : 'Envoyez ce lien de signature au client.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex items-center gap-2">
-              <Input readOnly value={contractLink?.url || ''} className="text-xs" onFocus={(e) => e.target.select()} />
-              <Button variant="outline" size="sm" onClick={handleCopyContractLink} title="Copier le lien">
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Lien valable 30 jours. Tout ancien lien en attente pour ce client a été révoqué.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button asChild className="flex-1 bg-emerald-600 hover:bg-emerald-700">
-                <a href={buildContractWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
-                  Envoyer par WhatsApp
-                </a>
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={handleCopyContractLink}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copier le lien
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SendContractDialog
+        invoice={contractInvoice}
+        open={Boolean(contractInvoice)}
+        onOpenChange={(open) => !open && setContractInvoice(null)}
+      />
     </AppLayout>
   );
 };

@@ -16,6 +16,8 @@ import { buildWhatsAppLink } from '@/utils/whatsappUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { Copy, MessageCircle, RefreshCw, Download, FileSignature } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ContractFollowupsPanel from '@/components/contracts/ContractFollowupsPanel';
+import { useAccess } from '@/hooks/useAccess';
 
 const STATUS_STYLES = {
   'Signé': 'bg-emerald-100 text-emerald-800',
@@ -28,6 +30,7 @@ const STATUS_STYLES = {
 
 const ContractsPage = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAccess();
   const { data: rows = [], isLoading, refetch } = useContractStatusList();
   const createLink = useCreateSigningLink();
   const [statusFilter, setStatusFilter] = useState('all');
@@ -124,6 +127,9 @@ const ContractsPage = () => {
 
   return (
     <AppLayout title="Contrats" subtitle="Suivi des signatures — en attente / signés / expirés">
+      <ContractFollowupsPanel isAdmin={isAdmin} />
+
+      <h2 className="font-semibold mb-3">Historique par client</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="rounded-lg border bg-card p-3">
           <p className="text-xs text-muted-foreground">Signés</p>

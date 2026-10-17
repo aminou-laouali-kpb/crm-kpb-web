@@ -7,6 +7,7 @@ import {
   STAGE_INDEX,
 } from '@/constants/dossiers';
 import { todayInNiamey } from '@/utils/dossiers';
+import { getContractState } from '@/utils/contracts';
 
 const pill = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-transparent';
 
@@ -19,6 +20,13 @@ export const PaymentBadge = ({ paymentStatus }) => {
   const p = PAYMENT_STATUSES[paymentStatus];
   if (!p) return null;
   return <span className={`${pill} border ${p.className}`}>{p.label}</span>;
+};
+
+/** État du contrat (dossiers issus d'une facture uniquement). */
+export const ContractBadge = ({ dossier }) => {
+  if (!dossier.invoice_id) return null;
+  const state = getContractState(dossier.contract_status);
+  return <span className={`${pill} ${state.className}`}>{state.label}</span>;
 };
 
 export const BlockedBadge = ({ dossier }) =>

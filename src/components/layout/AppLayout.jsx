@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAccess } from '@/hooks/useAccess';
 import { useDueInstallmentsCount } from '@/hooks/useInstallments';
 import { useMyPendingDailyCount } from '@/hooks/useDossiers';
+import { useContractFollowups } from '@/hooks/useContracts';
 import { hourInNiamey, isWorkday, todayInNiamey } from '@/utils/dossiers';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -34,7 +35,9 @@ const navLinkClass = ({ isActive }) =>
 
 const AppLayout = ({ children, title, subtitle }) => {
   const { user, signOut } = useAuth(false);
-  const { isAdmin, isAccountant, isDossierOnly, profile, roles } = useAccess();
+  const { isAdmin, isAccountant, isCommercial, isDossierOnly, profile, roles } = useAccess();
+  const { data: unsignedContracts = [] } = useContractFollowups({ enabled: isAdmin || isCommercial });
+  const unsignedCount = unsignedContracts.length;
   const isProcessor = isAdmin || roles.includes('agent') || roles.includes('contractuel');
   const { data: pendingDaily = 0 } = useMyPendingDailyCount(user?.id, { enabled: isProcessor });
   const hasAccountingAccess = isAdmin || isAccountant;
@@ -70,13 +73,28 @@ const AppLayout = ({ children, title, subtitle }) => {
     });
   }, [dailyBadge, user?.id]);
 
+  // Rappel à la connexion : clients qui n'ont pas signé leur contrat (une fois par jour et par session)
+  React.useEffect(() => {
+    if (!unsignedCount || !user?.id) return;
+    const key = `kpb_contract_alert_${user.id}_${todayInNiamey()}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch { /* ignore */ }
+    toast.warning(`${unsignedCount} client(s) n'ont pas encore signé leur contrat`, {
+      description: 'Envoyez ou renvoyez le lien de signature par WhatsApp.',
+      action: { label: 'Voir', onClick: () => { window.location.href = '/contracts'; } },
+      duration: 12000,
+    });
+  }, [unsignedCount, user?.id]);
+
   const navItems = isDossierOnly ? [dossiersItem] : [
     { to: '/', label: 'Factures', icon: FileText },
     { to: '/crm', label: 'CRM', icon: Users },
     dossiersItem,
     { to: '/relances', label: 'Relances tranches', icon: BellRing, badge: dueCount },
     { to: '/clients', label: 'Clients', icon: Users },
-    { to: '/contracts', label: 'Contrats', icon: FileSignature },
+    { to: '/contracts', label: 'Contrats', icon: FileSignature, badge: unsignedCount },
     { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
     { to: '/reports', label: 'Rapports', icon: FileBarChart },
     ...(hasAccountingAccess
