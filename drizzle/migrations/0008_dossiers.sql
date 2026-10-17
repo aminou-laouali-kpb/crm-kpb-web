@@ -133,12 +133,13 @@ AS $$ SELECT (now() AT TIME ZONE 'Africa/Niamey')::date $$;
 
 CREATE OR REPLACE FUNCTION public.dossier_visible(_uid uuid, _dossier_id uuid, _procedure_type text, _assigned_to uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+BEGIN
+  RETURN
     public.has_role(_uid, 'admin'::app_role)
     OR public.has_role(_uid, 'commercial'::app_role)
     OR public.has_role(_uid, 'comptable'::app_role)
@@ -155,16 +156,18 @@ AS $$
         )
       )
     );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.dossier_can_edit(_uid uuid, _dossier_id uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+BEGIN
+  RETURN
     public.has_role(_uid, 'admin'::app_role)
     OR EXISTS (
       SELECT 1 FROM public.dossiers d
@@ -175,18 +178,21 @@ AS $$
         )
         AND (public.has_role(_uid, 'agent'::app_role) OR public.has_role(_uid, 'contractuel'::app_role))
     );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.dossier_is_processor(_uid uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT public.has_role(_uid, 'admin'::app_role)
+BEGIN
+  RETURN public.has_role(_uid, 'admin'::app_role)
       OR public.has_role(_uid, 'agent'::app_role)
       OR public.has_role(_uid, 'contractuel'::app_role);
+END;
 $$;
 
 -- Écrit une entrée du journal et met à jour la date de dernière activité de l'équipe
