@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import { markdownToHtml } from '@/utils/markdownToHtml';
 import { DEFAULT_CONTRACT_CONFIG } from '@/constants/contractConfig';
 import { getEntity } from '@/config/entities';
 import kpbLogo from '@/assets/kpb-logo.png';
-import { Loader2, CheckCircle2, Download } from 'lucide-react';
+import { Loader2, CheckCircle2, Download, ShieldAlert, FileText, PenLine } from 'lucide-react';
+import { extractArticles, formatEngagementAmount } from '@/utils/contractSections';
 
 function SignaturePad({ onChange }) {
   const canvasRef = useRef(null);
@@ -117,7 +118,8 @@ const ContractSignPage = () => {
   const [context, setContext] = useState(null);
   const [renderedBody, setRenderedBody] = useState('');
   const [readAndAgreed, setReadAndAgreed] = useState(false);
-  const [reachedArticle7, setReachedArticle7] = useState(false);
+  const [refundAccepted, setRefundAccepted] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [signerName, setSignerName] = useState('');
   const [signatureImage, setSignatureImage] = useState('');
   const [signing, setSigning] = useState(false);
@@ -126,7 +128,6 @@ const ContractSignPage = () => {
   const [missingFields, setMissingFields] = useState([]);
   const [identityForm, setIdentityForm] = useState({});
   const [savingIdentity, setSavingIdentity] = useState(false);
-  const scrollRef = useRef(null);
 
   const renderBodyFromContext = (data, clientOverride = null) => {
     const prefill = data.prefill || {};
@@ -233,29 +234,17 @@ const ContractSignPage = () => {
     if (token) load();
   }, [token]);
 
-  useEffect(() => {
-    if (!renderedBody || !scrollRef.current || state !== 'pending') return;
-    const root = scrollRef.current;
-    const target = root.querySelector('#article-7');
-    if (!target) {
-      const onScroll = () => {
-        const { scrollTop, scrollHeight, clientHeight } = root;
-        if (scrollTop + clientHeight >= scrollHeight * 0.55) setReachedArticle7(true);
-      };
-      root.addEventListener('scroll', onScroll);
-      return () => root.removeEventListener('scroll', onScroll);
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) setReachedArticle7(true);
-      },
-      { root, threshold: 0.15 }
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [renderedBody, state]);
-
   const html = useMemo(() => markdownToHtml(renderedBody), [renderedBody]);
+  // Remboursement (art. 7) et désistement / résiliation (art. 9), affichés à part
+  const refundHtml = useMemo(
+    () => markdownToHtml(extractArticles(renderedBody, [7, 9])),
+    [renderedBody]
+  );
+  const engagement = context?.prefill?.engagement || {};
+  const priceLabel = formatEngagementAmount(engagement.prix_total, engagement.devise);
+  const feesLabel = Number(engagement.frais_inscription) > 0
+    ? formatEngagementAmount(engagement.frais_inscription, engagement.devise)
+    : null;
   const clientNom = context?.prefill?.client
     ? `${context.prefill.client.first_name || ''} ${context.prefill.client.last_name || ''}`.trim()
     : '';
@@ -264,8 +253,8 @@ const ContractSignPage = () => {
   const canSign =
     state === 'pending'
     && missingFields.length === 0
-    && reachedArticle7
     && readAndAgreed
+    && refundAccepted
     && signerName.trim().length > 1
     && !!signatureImage
     && !signing;
@@ -333,6 +322,7 @@ const ContractSignPage = () => {
           p_contract_hash: hash,
           p_user_agent: navigator.userAgent,
           p_signer_ip: null,
+          p_refund_policy_accepted: refundAccepted,
         });
         if (rpcError) throw rpcError;
         data = reqData;
@@ -355,7 +345,7 @@ const ContractSignPage = () => {
 
       if (!context?._legacy) {
         try {
-          await supabase.functions.invoke('sign-contract', {
+          const { data: emailResult } = await supabase.functions.invoke('sign-contract', {
             body: {
               action: 'send_confirmation',
               signature_id: data.signature_id,
@@ -363,6 +353,7 @@ const ContractSignPage = () => {
               token,
             },
           });
+          setEmailSent(Boolean(emailResult?.ok));
         } catch (emailError) {
           console.error('Contract confirmation email failed:', emailError);
         }
@@ -370,7 +361,7 @@ const ContractSignPage = () => {
 
       setDone({ ...data, pdf_signed_url: finalized?.pdf_signed_url || null });
       setState('signed');
-      toast.success('Contrat signé. Une copie vous a été envoyée par e-mail.');
+      toast.success('Contrat signé. Merci !');
     } catch (e) {
       toast.error(e.message || 'Échec de la signature');
     } finally {
@@ -429,7 +420,7 @@ const ContractSignPage = () => {
           <CheckCircle2 className="h-14 w-14 text-emerald-600 mx-auto" />
           <h1 className="text-2xl font-semibold">Contrat signé</h1>
           <p className="text-muted-foreground">
-            Une copie vous a été envoyée par e-mail.
+            {emailSent ? 'Une copie vous a été envoyée par e-mail. ' : 'Vous pouvez télécharger votre exemplaire ci-dessous. '}
             {done.signer_name ? ` Signataire : ${done.signer_name}.` : ''}
             {done.signed_at
               ? ` Le ${new Date(done.signed_at).toLocaleString('fr-FR')}.`
@@ -455,38 +446,60 @@ const ContractSignPage = () => {
     );
   }
 
+  const step = (n, title, icon) => (
+    <div className="flex items-center gap-2">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+        {n}
+      </span>
+      {icon}
+      <h2 className="text-base font-semibold">{title}</h2>
+    </div>
+  );
+  const identityStep = missingFields.length > 0;
+  const offset = identityStep ? 1 : 0;
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-100">
       <header className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <img src={kpbLogo} alt="KPB" className="h-9" />
-        <div>
-          <h1 className="text-base font-semibold leading-tight">Contrat de prestation de services</h1>
-          <p className="text-xs text-muted-foreground">Préparé pour {clientNom}</p>
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold leading-tight">Contrat d’accompagnement</h1>
+          <p className="text-xs text-muted-foreground truncate">Préparé pour {clientNom} · {entityName}</p>
         </div>
       </header>
 
-      <div className="px-4 py-3 grid gap-2 md:grid-cols-2 max-w-4xl mx-auto w-full">
-        <div className="rounded-md border bg-white p-3 text-sm">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Client</p>
-          <p className="font-medium">{clientNom}</p>
-        </div>
-        <div className="rounded-md border bg-white p-3 text-sm">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Prestataire</p>
-          <p className="font-medium">{entityName}</p>
-        </div>
-      </div>
+      <main className="max-w-3xl mx-auto px-4 py-5 space-y-5 pb-16">
+        {/* L'essentiel */}
+        <section className="rounded-xl border bg-white p-4 space-y-3">
+          <h2 className="text-base font-semibold">L’essentiel en 5 points</h2>
+          <ol className="list-decimal pl-5 space-y-2 text-sm">
+            <li>
+              KPB Education vous <strong>accompagne</strong> dans vos démarches (orientation, candidatures,
+              visa selon votre offre). C’est une <strong>obligation de moyens</strong> : l’admission, la bourse ou le
+              visa ne peuvent pas être garantis.
+            </li>
+            <li>
+              Prix de l’accompagnement : <strong>{priceLabel || 'voir l’Annexe 1'}</strong>
+              {feesLabel ? <> dont <strong>{feesLabel}</strong> de frais d’inscription non remboursables</> : null}.
+            </li>
+            <li>Vous vous engagez à fournir des documents exacts, à répondre rapidement et à payer selon l’échéancier.</li>
+            <li>
+              <strong>Remboursement</strong> : partiel tant que l’avancement ne dépasse pas 50 %,
+              <strong> plus aucun remboursement après le dépôt des candidatures</strong> (voir ci-dessous).
+            </li>
+            <li>
+              En cas de refus alors que votre dossier était complet, KPB reprend <strong>gratuitement</strong> une
+              nouvelle candidature (« seconde chance »), à la place d’un remboursement.
+            </li>
+          </ol>
+          <p className="text-xs text-muted-foreground">Résumé indicatif : seul le contrat complet ci-dessous fait foi.</p>
+        </section>
 
-      {state === 'pending' && missingFields.length > 0 && (
-        <div className="px-4 pb-3 max-w-4xl mx-auto w-full">
-          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold text-amber-900">
-                Complétez vos informations avant de signer
-              </h2>
-              <p className="text-xs text-amber-800 mt-1">
-                Ces informations apparaîtront dans le contrat. Elles sont obligatoires pour signer.
-              </p>
-            </div>
+        {/* Étape 1 : informations */}
+        {identityStep && (
+          <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+            {step(1, 'Vos informations')}
+            <p className="text-sm text-amber-900">Elles apparaîtront dans le contrat et sont obligatoires pour signer.</p>
             <div className="grid gap-3 md:grid-cols-2">
               {IDENTITY_FIELDS.filter(({ key }) => missingFields.includes(key)).map(({ key, label, type }) => (
                 <div key={key}>
@@ -501,41 +514,48 @@ const ContractSignPage = () => {
                 </div>
               ))}
             </div>
-            <Button size="sm" onClick={handleSaveIdentity} disabled={savingIdentity}>
+            <Button onClick={handleSaveIdentity} disabled={savingIdentity}>
               {savingIdentity ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enregistrement…</>
               ) : (
                 'Valider mes informations'
               )}
             </Button>
+          </section>
+        )}
+
+        {/* Lire le contrat */}
+        <section className="rounded-xl border bg-white p-4 space-y-3">
+          {step(1 + offset, 'Lire le contrat', <FileText className="h-4 w-4 text-muted-foreground" />)}
+          <article
+            className="max-h-[55vh] overflow-y-auto rounded-md border bg-slate-50 p-4 prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </section>
+
+        {/* Remboursement et désistement */}
+        <section className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 space-y-3">
+          {step(2 + offset, 'Remboursement et désistement', <ShieldAlert className="h-4 w-4 text-amber-700" />)}
+          <div
+            className="rounded-md bg-white border p-4 prose prose-sm max-w-none max-h-[45vh] overflow-y-auto"
+            dangerouslySetInnerHTML={{ __html: refundHtml || '<p>Voir les articles 7 et 9 du contrat.</p>' }}
+          />
+          <div className="flex items-start gap-2 rounded-md bg-white border p-3">
+            <Checkbox
+              id="refund-accepted"
+              checked={refundAccepted}
+              onCheckedChange={(v) => setRefundAccepted(v === true)}
+            />
+            <Label htmlFor="refund-accepted" className="text-sm leading-snug cursor-pointer">
+              J’ai lu et j’accepte la <strong>politique de remboursement et de désistement</strong> (articles 7 et 9),
+              notamment qu’<strong>aucun remboursement n’est dû après le dépôt des candidatures</strong>.
+            </Label>
           </div>
-        </div>
-      )}
+        </section>
 
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 pb-40"
-      >
-        <article
-          className="max-w-4xl mx-auto bg-white shadow-sm border rounded-lg p-6 prose prose-sm
-            [&_#article-7]:bg-amber-50 [&_#article-7]:border [&_#article-7]:border-amber-200
-            [&_#article-7]:rounded-md [&_#article-7]:px-3 [&_#article-7]:py-2"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </div>
-
-      <footer className="fixed bottom-0 inset-x-0 bg-white border-t shadow-lg p-4">
-        <div className="max-w-4xl mx-auto space-y-3">
-          {missingFields.length > 0 && (
-            <p className="text-xs text-amber-700">
-              Complétez d&apos;abord vos informations en haut de la page pour activer la signature.
-            </p>
-          )}
-          {missingFields.length === 0 && !reachedArticle7 && (
-            <p className="text-xs text-amber-700">
-              Faites défiler jusqu&apos;à l&apos;Article 7 (remboursement) pour activer la signature.
-            </p>
-          )}
+        {/* Signer */}
+        <section className="rounded-xl border bg-white p-4 space-y-4">
+          {step(3 + offset, 'Signer', <PenLine className="h-4 w-4 text-muted-foreground" />)}
           <div className="flex items-start gap-2">
             <Checkbox
               id="read-agreed"
@@ -543,11 +563,10 @@ const ContractSignPage = () => {
               onCheckedChange={(v) => setReadAndAgreed(v === true)}
             />
             <Label htmlFor="read-agreed" className="text-sm leading-snug cursor-pointer">
-              <strong>Lu et approuvé.</strong> Je reconnais avoir lu l&apos;intégralité du contrat,
-              y compris l&apos;Article 7 relatif au remboursement, et j&apos;en accepte les termes.
+              <strong>Lu et approuvé.</strong> J’ai lu l’intégralité du contrat et j’en accepte les termes.
             </Label>
           </div>
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className="grid gap-3">
             <div>
               <Label htmlFor="signer-name">Nom et prénom</Label>
               <Input
@@ -558,24 +577,34 @@ const ContractSignPage = () => {
               />
             </div>
             <div>
-              <Label>Signature (souris ou doigt)</Label>
+              <Label>Signez dans le cadre (doigt ou souris)</Label>
               <div className="mt-1">
                 <SignaturePad onChange={setSignatureImage} />
               </div>
             </div>
           </div>
-          <Button className="w-full md:w-auto" disabled={!canSign} onClick={handleSign}>
+          {!canSign && state === 'pending' && (
+            <ul className="text-xs text-amber-700 list-disc pl-5 space-y-0.5">
+              {identityStep && <li>Complétez et validez vos informations (étape 1).</li>}
+              {!refundAccepted && <li>Cochez l’acceptation de la politique de remboursement et de désistement.</li>}
+              {!readAndAgreed && <li>Cochez « Lu et approuvé ».</li>}
+              {signerName.trim().length <= 1 && <li>Indiquez votre nom et prénom.</li>}
+              {!signatureImage && <li>Signez dans le cadre.</li>}
+            </ul>
+          )}
+          <Button size="lg" className="w-full" disabled={!canSign} onClick={handleSign}>
             {signing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Envoi…
-              </>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Signature en cours…</>
             ) : (
-              'Envoyer'
+              'Valider et signer le contrat'
             )}
           </Button>
-        </div>
-      </footer>
+          <p className="text-xs text-muted-foreground">
+            Votre signature électronique a la même valeur qu’une signature manuscrite. Nous conservons la date,
+            l’heure, l’adresse IP et la version du contrat signé.
+          </p>
+        </section>
+      </main>
     </div>
   );
 };

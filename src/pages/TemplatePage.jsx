@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, ExternalLink, Send } from 'lucide-react';
+import { Loader2, ExternalLink, Send, FileSignature } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import InvoiceTemplate from '../components/InvoiceTemplate';
@@ -9,6 +9,7 @@ import { templates } from '../utils/templateRegistry';
 import { useUpdateInvoice } from '@/hooks/useInvoices';
 import { buildWhatsAppLink, buildInvoiceSentMessage } from '@/utils/whatsappUtils';
 import AppLayout from '@/components/layout/AppLayout';
+import SendContractDialog from '@/components/contracts/SendContractDialog';
 
 const TemplatePage = () => {
   const location = useLocation();
@@ -18,6 +19,7 @@ const TemplatePage = () => {
   const [currentTemplate, setCurrentTemplate] = useState(1);
   const [invoiceId, setInvoiceId] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
 
   useEffect(() => {
     if (location.state?.formData) {
@@ -121,6 +123,12 @@ const TemplatePage = () => {
           <Button variant="outline" onClick={handleWhatsAppSend}>
             WhatsApp client
           </Button>
+          {invoiceId && !formData.isGuideUltime && (
+            <Button variant="outline" onClick={() => setContractOpen(true)}>
+              <FileSignature className="mr-2 h-4 w-4 text-emerald-600" />
+              Envoyer le contrat à signer
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => navigate('/crm')}>
             <ExternalLink className="mr-2 h-4 w-4" />
             Ouvrir CRM
@@ -151,6 +159,18 @@ const TemplatePage = () => {
           <InvoiceTemplate data={formData} templateNumber={currentTemplate} />
         </div>
       </div>
+
+      <SendContractDialog
+        invoice={invoiceId ? {
+          id: invoiceId,
+          invoice_number: formData.invoice?.number,
+          client_first_name: formData.clientInfo?.firstName,
+          client_last_name: formData.clientInfo?.lastName,
+          client_whatsapp: formData.clientInfo?.whatsapp,
+        } : null}
+        open={contractOpen}
+        onOpenChange={setContractOpen}
+      />
     </AppLayout>
   );
 };

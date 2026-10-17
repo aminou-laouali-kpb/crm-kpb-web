@@ -62,6 +62,7 @@ export const EVENT_TYPES = {
   assignment: { label: 'Affectation', className: 'bg-slate-100 text-slate-700' },
   info_update: { label: 'Informations', className: 'bg-slate-100 text-slate-700' },
   payment: { label: 'Paiement', className: 'bg-teal-100 text-teal-800' },
+  contract: { label: 'Contrat', className: 'bg-indigo-100 text-indigo-800' },
 };
 
 /** Entrées qu'un agent peut saisir librement dans le journal. */

@@ -67,6 +67,13 @@ Une facture payée est verrouillée côté base : seul un admin peut en changer 
 - **Journal** : commentaire obligatoire à chaque changement d'étape, point du jour (un par dossier et par jour, du lundi au vendredi), notes commerciales. Le journal n'est pas modifiable (seul l'admin corrige). Toutes les écritures passent par des fonctions SQL contrôlées.
 - **Accès** : admin, commerciaux et agents voient tous les dossiers ; un contractuel ne voit que les procédures de son périmètre et les dossiers qui lui sont confiés. Seuls le responsable, ses intervenants et l'admin font avancer un dossier ; les commerciaux commentent.
 
+## Contrats (signature en ligne)
+
+- **Envoi en un clic** dès l'enregistrement de la facture (avant paiement) : bouton contrat dans le CRM, sur la page de la facture ou dans Contrats → « Contrats à faire signer ». Renvoyer redonne le même lien ; « Nouveau lien » désactive l'ancien (à utiliser si la facture a changé).
+- **Un bon de commande par facture** (prix de la facture) : une 2e vente au même client a son propre contrat.
+- **Page client** : l'essentiel en 5 points, contrat complet, encadré « Remboursement et désistement » (articles 7 et 9) avec sa propre case d'acceptation, « Lu et approuvé », nom, signature, « Valider et signer ». L'acceptation du remboursement et l'adresse IP sont enregistrées avec la signature.
+- **Relances** : badge « Contrats » et rappel à la connexion pour les commerciaux tant qu'un client n'a pas signé ; nombre de relances suivi. Le statut du contrat (envoyé, ouvert, signé) apparaît dans le dossier et dans son journal. La signature ne bloque pas le travail sur le dossier.
+
 ## Statuts de facture
 
 ```

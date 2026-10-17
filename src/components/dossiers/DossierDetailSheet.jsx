@@ -12,6 +12,7 @@ import {
   StatusBadge,
   PaymentBadge,
   BlockedBadge,
+  ContractBadge,
   ResultBadges,
   StageProgress,
   UpdateFreshness,
@@ -313,6 +314,7 @@ const DossierDetailSheet = ({ dossier, open, onOpenChange, access, userId }) => 
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={dossier.status} />
             <PaymentBadge paymentStatus={dossier.payment_status} />
+            <ContractBadge dossier={dossier} />
             <BlockedBadge dossier={dossier} />
             <ResultBadges dossier={dossier} />
             <UpdateFreshness dossier={dossier} />

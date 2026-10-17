@@ -5,6 +5,7 @@ import {
   StatusBadge,
   PaymentBadge,
   BlockedBadge,
+  ContractBadge,
   ResultBadges,
   StageProgress,
   UpdateFreshness,
@@ -96,6 +97,7 @@ const DossierTable = ({ dossiers, onOpen, names, procedureTypes }) => {
                 <div className="flex flex-wrap gap-1">
                   <StatusBadge status={d.status} />
                   <PaymentBadge paymentStatus={d.payment_status} />
+                  {d.contract_status !== 'signe' && <ContractBadge dossier={d} />}
                   <BlockedBadge dossier={d} />
                   <ResultBadges dossier={d} />
                 </div>
