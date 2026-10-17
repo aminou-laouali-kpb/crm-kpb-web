@@ -19,6 +19,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAccess } from '@/hooks/useAccess';
 import { useDueInstallmentsCount } from '@/hooks/useInstallments';
+import { useMyPendingDailyCount } from '@/hooks/useDossiers';
+import { hourInNiamey, isWorkday, todayInNiamey } from '@/utils/dossiers';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import kpbLogo from '@/assets/kpb-logo.png';
@@ -32,7 +34,9 @@ const navLinkClass = ({ isActive }) =>
 
 const AppLayout = ({ children, title, subtitle }) => {
   const { user, signOut } = useAuth(false);
-  const { isAdmin, isAccountant, isDossierOnly, profile } = useAccess();
+  const { isAdmin, isAccountant, isDossierOnly, profile, roles } = useAccess();
+  const isProcessor = isAdmin || roles.includes('agent') || roles.includes('contractuel');
+  const { data: pendingDaily = 0 } = useMyPendingDailyCount(user?.id, { enabled: isProcessor });
   const hasAccountingAccess = isAdmin || isAccountant;
   const { data: dueCount = 0 } = useDueInstallmentsCount({ enabled: !isDossierOnly });
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -50,11 +54,26 @@ const AppLayout = ({ children, title, subtitle }) => {
     });
   }, [dueCount, user?.id]);
 
-  const navItems = isDossierOnly ? [
-    { to: '/dossiers', label: 'Dossiers', icon: FolderKanban },
-  ] : [
+  const dailyBadge = isWorkday() ? pendingDaily : 0;
+  const dossiersItem = { to: '/dossiers', label: 'Dossiers', icon: FolderKanban, badge: dailyBadge };
+  // Rappel de fin de journée (à partir de 16h, une fois par session et par jour)
+  React.useEffect(() => {
+    if (!dailyBadge || !user?.id || hourInNiamey() < 16) return;
+    const key = `kpb_daily_alert_${user.id}_${todayInNiamey()}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch { /* ignore */ }
+    toast.warning(`Point du jour : ${dailyBadge} dossier(s) à mettre à jour avant de partir`, {
+      action: { label: 'Voir', onClick: () => { window.location.href = '/dossiers?vue=today'; } },
+      duration: 10000,
+    });
+  }, [dailyBadge, user?.id]);
+
+  const navItems = isDossierOnly ? [dossiersItem] : [
     { to: '/', label: 'Factures', icon: FileText },
     { to: '/crm', label: 'CRM', icon: Users },
+    dossiersItem,
     { to: '/relances', label: 'Relances tranches', icon: BellRing, badge: dueCount },
     { to: '/clients', label: 'Clients', icon: Users },
     { to: '/contracts', label: 'Contrats', icon: FileSignature },
@@ -142,7 +161,7 @@ const AppLayout = ({ children, title, subtitle }) => {
       )}
 
       {/* Main content */}
-      <div className="flex-1 md:ml-64">
+      <div className="flex-1 md:ml-64 min-w-0">
         <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center gap-3">
           <Button
             variant="ghost"

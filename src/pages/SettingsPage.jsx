@@ -4,6 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
 import { useAuth } from '@/hooks/useAuth';
 import UserAccessSection from '@/components/settings/UserAccessSection';
+import DossierRoutingSection from '@/components/settings/DossierRoutingSection';
 import { useFollowUpDays, useSaveFollowUpDays } from '@/hooks/useFollowUpDays';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -120,6 +121,8 @@ const SettingsPage = () => {
     <AppLayout title="Paramètres" subtitle="Configuration de l'application">
       <div className="max-w-2xl space-y-6">
         <UserAccessSection currentUserId={user?.id} />
+
+        <DossierRoutingSection />
 
         <Card>
           <CardHeader>
