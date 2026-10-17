@@ -340,13 +340,12 @@ const ContractSignPage = () => {
 
       let finalized = null;
       try {
-        const clientId = context.prefill?.client?.id || context.client?.id;
         const { data: finalData } = await supabase.functions.invoke('sign-contract', {
           body: {
             action: 'finalize_signature',
             signature_id: data.signature_id,
             request_id: data.request_id,
-            pdf_path: `${clientId}/${data.signature_id}.pdf`,
+            token,
           },
         });
         finalized = finalData;
@@ -361,6 +360,7 @@ const ContractSignPage = () => {
               action: 'send_confirmation',
               signature_id: data.signature_id,
               request_id: data.request_id,
+              token,
             },
           });
         } catch (emailError) {

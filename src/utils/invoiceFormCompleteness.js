@@ -32,6 +32,8 @@ export const getMissingInvoiceFields = ({
   service = '',
   salesRep = '',
   grandTotal = 0,
+  procedureType = '',
+  requireProcedure = false,
 }) => {
   const missing = [];
   if (!String(clientInfo.firstName || '').trim()) missing.push('Prénom du client');
@@ -42,6 +44,7 @@ export const getMissingInvoiceFields = ({
   if (!String(invoice.date || '').trim()) missing.push('Date de la facture');
   if (!String(service || '').trim()) missing.push('Description du service');
   if (!(parseAmountInput(grandTotal) > 0)) missing.push('Montant total');
+  if (requireProcedure && !String(procedureType || '').trim()) missing.push('Type de procédure');
   if (!String(salesRep || '').trim()) missing.push('Commercial');
   return missing;
 };

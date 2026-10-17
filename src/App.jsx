@@ -18,6 +18,7 @@ const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage'), 'Settin
 const ClientsPage = lazyWithRetry(() => import('./pages/ClientsPage'), 'ClientsPage');
 const InstallmentsPage = lazyWithRetry(() => import('./pages/InstallmentsPage'), 'InstallmentsPage');
 const ContractsPage = lazyWithRetry(() => import('./pages/ContractsPage'), 'ContractsPage');
+const DossiersPage = lazyWithRetry(() => import('./pages/DossiersPage'), 'DossiersPage');
 const ContractSignPage = lazyWithRetry(() => import('./pages/ContractSignPage'), 'ContractSignPage');
 const Index = lazyWithRetry(() => import('./pages/Index'), 'Index');
 const AuthPage = lazyWithRetry(() => import('./pages/AuthPage'), 'AuthPage');
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="/activity-logs" element={<ActivityLogsPage />} />
                 <Route path="/deletion-requests" element={<DeletionRequestsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/dossiers" element={<DossiersPage />} />
               </Route>
             </Routes>
           </Suspense>

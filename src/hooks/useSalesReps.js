@@ -2,15 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_SALES_REPS } from '@/constants/salesReps';
 
-export const useSalesReps = () => {
+export const useSalesReps = ({ includeInactive = false } = {}) => {
   return useQuery({
-    queryKey: ['sales-reps'],
+    queryKey: ['sales-reps', includeInactive ? 'all' : 'active'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_reps')
-        .select('*')
-        .eq('active', true)
-        .order('name');
+      let query = supabase.from('sales_reps').select('*').order('name');
+      if (!includeInactive) query = query.eq('active', true);
+      const { data, error } = await query;
 
       if (error) {
         // Fallback to defaults if table doesn't exist yet

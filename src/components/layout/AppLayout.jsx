@@ -14,10 +14,10 @@ import {
   FileSignature,
   Trash2,
   BellRing,
+  FolderKanban,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useAccountingAccess } from '@/hooks/useAccountingAccess';
-import { useAdminCheck } from '@/hooks/useAdminCheck';
+import { useAccess } from '@/hooks/useAccess';
 import { useDueInstallmentsCount } from '@/hooks/useInstallments';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -32,9 +32,9 @@ const navLinkClass = ({ isActive }) =>
 
 const AppLayout = ({ children, title, subtitle }) => {
   const { user, signOut } = useAuth(false);
-  const { hasAccess: hasAccountingAccess } = useAccountingAccess();
-  const { isAdmin } = useAdminCheck();
-  const { data: dueCount = 0 } = useDueInstallmentsCount();
+  const { isAdmin, isAccountant, isDossierOnly, profile } = useAccess();
+  const hasAccountingAccess = isAdmin || isAccountant;
+  const { data: dueCount = 0 } = useDueInstallmentsCount({ enabled: !isDossierOnly });
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -50,7 +50,9 @@ const AppLayout = ({ children, title, subtitle }) => {
     });
   }, [dueCount, user?.id]);
 
-  const navItems = [
+  const navItems = isDossierOnly ? [
+    { to: '/dossiers', label: 'Dossiers', icon: FolderKanban },
+  ] : [
     { to: '/', label: 'Factures', icon: FileText },
     { to: '/crm', label: 'CRM', icon: Users },
     { to: '/relances', label: 'Relances tranches', icon: BellRing, badge: dueCount },
@@ -102,6 +104,9 @@ const AppLayout = ({ children, title, subtitle }) => {
       </nav>
 
       <div className="p-3 border-t">
+        {profile?.full_name && (
+          <p className="text-sm font-medium truncate px-3">{profile.full_name}</p>
+        )}
         <p className="text-xs text-muted-foreground truncate px-3 mb-2">{user?.email}</p>
         <Button
           variant="ghost"

@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
+import { useAuth } from '@/hooks/useAuth';
+import UserAccessSection from '@/components/settings/UserAccessSection';
+import { useFollowUpDays, useSaveFollowUpDays } from '@/hooks/useFollowUpDays';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import {
-  DEFAULT_FOLLOW_UP_DAYS,
-  getFollowUpDays,
-  setFollowUpDays,
-} from '@/constants/followUpConfig';
+import { DEFAULT_FOLLOW_UP_DAYS } from '@/constants/followUpConfig';
 import { useSalesReps } from '@/hooks/useSalesReps';
 import { supabase } from '@/integrations/supabase/client';
 import { useContractConfig } from '@/hooks/useClients';
@@ -20,11 +20,16 @@ import { DEFAULT_CONTRACT_CONFIG } from '@/constants/contractConfig';
 const SettingsPage = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: adminLoading } = useAdminCheck();
-  const { data: salesReps = [] } = useSalesReps();
+  const { user } = useAuth(false);
+  const { data: salesReps = [] } = useSalesReps({ includeInactive: true });
   const queryClient = useQueryClient();
-  const [followUpInput, setFollowUpInput] = useState(
-    getFollowUpDays().join(', ')
-  );
+  const { followUpDays } = useFollowUpDays();
+  const saveFollowUpDays = useSaveFollowUpDays();
+  const [followUpInput, setFollowUpInput] = useState(DEFAULT_FOLLOW_UP_DAYS.join(', '));
+
+  React.useEffect(() => {
+    setFollowUpInput(followUpDays.join(', '));
+  }, [followUpDays]);
   const [newRepName, setNewRepName] = useState('');
 
   const { data: contractConfigRemote } = useContractConfig();
@@ -54,7 +59,7 @@ const SettingsPage = () => {
     toast.success('Configuration contrat enregistrée');
   };
 
-  const handleSaveFollowUp = () => {
+  const handleSaveFollowUp = async () => {
     const days = followUpInput
       .split(',')
       .map((d) => parseInt(d.trim()))
@@ -63,14 +68,21 @@ const SettingsPage = () => {
       toast.error('Entrez au moins un seuil valide (ex: 3, 7, 14)');
       return;
     }
-    setFollowUpDays(days);
-    toast.success('Seuils de relance enregistrés');
+    try {
+      await saveFollowUpDays.mutateAsync(days);
+      toast.success('Seuils de relance enregistrés pour toute l’équipe');
+    } catch {
+      toast.error('Erreur lors de l’enregistrement des seuils');
+    }
   };
 
-  const handleResetFollowUp = () => {
-    setFollowUpDays(DEFAULT_FOLLOW_UP_DAYS);
-    setFollowUpInput(DEFAULT_FOLLOW_UP_DAYS.join(', '));
-    toast.success('Seuils réinitialisés');
+  const handleResetFollowUp = async () => {
+    try {
+      await saveFollowUpDays.mutateAsync(DEFAULT_FOLLOW_UP_DAYS);
+      toast.success('Seuils réinitialisés');
+    } catch {
+      toast.error('Erreur lors de la réinitialisation');
+    }
   };
 
   const handleAddSalesRep = async () => {
@@ -107,12 +119,14 @@ const SettingsPage = () => {
   return (
     <AppLayout title="Paramètres" subtitle="Configuration de l'application">
       <div className="max-w-2xl space-y-6">
+        <UserAccessSection currentUserId={user?.id} />
+
         <Card>
           <CardHeader>
             <CardTitle>Relances automatiques</CardTitle>
             <CardDescription>
               Seuils en jours avant qu'une facture soit marquée « À relancer »
-              (le plus bas seuil actif est utilisé pour le statut automatique).
+              (le plus bas seuil est utilisé pour le statut automatique ; les autres colorent les lignes).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
