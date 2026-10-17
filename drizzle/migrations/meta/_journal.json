@@ -43,6 +43,20 @@
       "when": 1790890163646,
       "tag": "0005_guide_ultime_product_code",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790890223646,
+      "tag": "0006_roles_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790890283646,
+      "tag": "0007_fondations_securite",
+      "breakpoints": true
     }
   ]
 }

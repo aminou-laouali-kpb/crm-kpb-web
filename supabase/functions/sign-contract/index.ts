@@ -157,7 +157,7 @@ async function getCommercialEmail(userId?: string | null) {
 async function buildSignatureContext(signatureId: string, requestId?: string | null) {
   const { data: signature, error: sigError } = await service
     .from('contract_signatures')
-    .select('id, signer_name, signer_email, signed_at, pdf_url, template_version, request_id, entity_key, contract_hash, rendered_body, signature_image')
+    .select('id, client_id, engagement_id, signer_name, signer_email, signed_at, pdf_url, template_version, request_id, entity_key, contract_hash, rendered_body, signature_image')
     .eq('id', signatureId)
     .single();
   if (sigError) throw sigError;
@@ -176,6 +176,42 @@ async function buildSignatureContext(signatureId: string, requestId?: string | n
 
   const entityName = request?.prefill?.entity?.legal_name || 'KPB Education';
   return { signature, request, entityName };
+}
+
+// L'appelant (page publique de signature) doit prouver qu'il détient le lien
+// de signature correspondant à cette signature.
+async function assertTokenMatchesSignature(
+  context: Awaited<ReturnType<typeof buildSignatureContext>>,
+  token?: string | null,
+) {
+  if (!token) throw new HttpError(403, 'token required');
+  if (context.request) {
+    if (String(context.request.token) !== String(token)) throw new HttpError(403, 'Forbidden');
+    return;
+  }
+  const { data: legacy, error } = await service
+    .from('contract_signing_tokens')
+    .select('id')
+    .eq('token', token)
+    .eq('engagement_id', context.signature.engagement_id)
+    .maybeSingle();
+  if (error || !legacy) throw new HttpError(403, 'Forbidden');
+}
+
+// Limite les actions post-signature (PDF, e-mail) à la fenêtre qui suit la signature.
+const POST_SIGNATURE_WINDOW_MS = 60 * 60 * 1000;
+function assertRecentlySigned(signedAt: string | null) {
+  if (!signedAt || Date.now() - new Date(signedAt).getTime() > POST_SIGNATURE_WINDOW_MS) {
+    throw new HttpError(409, 'Signature trop ancienne');
+  }
+}
+
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 async function maybeSignedPdfUrl(pdfPath?: string | null) {
@@ -237,11 +273,23 @@ serve(async (req) => {
     const action = body.action;
 
     if (action === 'finalize_signature') {
-      const { signature_id: signatureId, request_id: requestId, pdf_path: pdfPath } = body;
-      if (!signatureId) throw new Error('signature_id required');
-      if (!pdfPath) throw new Error('pdf_path required');
+      const { signature_id: signatureId, request_id: requestId, token } = body;
+      if (!signatureId) throw new HttpError(400, 'signature_id required');
 
       const context = await buildSignatureContext(signatureId, requestId);
+      await assertTokenMatchesSignature(context, token);
+
+      // PDF déjà archivé : on ne le régénère jamais (pièce probante immuable).
+      if (context.signature.pdf_url) {
+        const existingUrl = await maybeSignedPdfUrl(context.signature.pdf_url);
+        return new Response(JSON.stringify({ ok: true, pdf_path: context.signature.pdf_url, pdf_signed_url: existingUrl }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      assertRecentlySigned(context.signature.signed_at);
+
+      // Chemin calculé côté serveur : l'appelant ne choisit plus où écrire.
+      const pdfPath = `${context.signature.client_id}/${context.signature.id}.pdf`;
       const pdfBytes = await generateContractPdf({
         entityName: context.entityName,
         renderedBody: context.signature.rendered_body || '',
@@ -295,6 +343,8 @@ serve(async (req) => {
         });
       }
       const context = await buildSignatureContext(signatureId, body.request_id);
+      await assertTokenMatchesSignature(context, body.token);
+      assertRecentlySigned(context.signature.signed_at);
       const result = await sendEmails(context);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -306,9 +356,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
+    console.error('sign-contract error:', e);
+    const status = e instanceof HttpError ? e.status : 500;
+    const message = e instanceof HttpError ? e.message : 'Erreur interne';
+    return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status,
     });
   }
 });

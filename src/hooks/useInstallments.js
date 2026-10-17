@@ -14,8 +14,9 @@ export const useInstallments = (status = 'pending') =>
     },
   });
 
-export const useDueInstallmentsCount = () =>
+export const useDueInstallmentsCount = ({ enabled = true } = {}) =>
   useQuery({
+    enabled,
     queryKey: ['installments', 'due-count'],
     queryFn: async () => {
       const { count, error } = await supabase

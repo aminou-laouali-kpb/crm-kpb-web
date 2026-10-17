@@ -6,6 +6,7 @@ import ClientInfoSection from '../components/ClientInfoSection';
 import ServiceSection from '../components/ServiceSection';
 import PaymentTypeSection from '../components/PaymentTypeSection';
 import SalesRepSection from '../components/SalesRepSection';
+import ProcedureSection from '../components/ProcedureSection';
 import { templates } from "../utils/templateRegistry";
 import { FiEdit, FiTrash2 } from "react-icons/fi";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import {
   todayISODate,
 } from '../utils/invoiceFormCompleteness';
 import { useCreateInvoice } from '@/hooks/useInvoices';
+import { useAccess } from '@/hooks/useAccess';
 import { GUIDE_ULTIME } from '@/constants/products';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -34,6 +36,11 @@ const Index = () => {
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState('');
   const [isGuideUltime, setIsGuideUltime] = useState(false);
+  const [procedureType, setProcedureType] = useState("");
+  const [destinationCountry, setDestinationCountry] = useState("");
+  const [includesVisa, setIncludesVisa] = useState(false);
+  const { isAdmin, linkedSalesRep } = useAccess();
+  const salesRepLocked = Boolean(linkedSalesRep) && !isAdmin;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -56,6 +63,7 @@ const Index = () => {
       let nextTotal = '';
       let nextCurrency = "XOF";
       let nextGuide = false;
+      let nextProcedure = { type: "", country: "", visa: false };
 
       if (savedFormData) {
         try {
@@ -84,6 +92,11 @@ const Index = () => {
             : '';
           nextCurrency = parsedData.selectedCurrency || "XOF";
           nextGuide = Boolean(parsedData.isGuideUltime);
+          nextProcedure = {
+            type: parsedData.procedureType || "",
+            country: parsedData.destinationCountry || "",
+            visa: Boolean(parsedData.includesVisa),
+          };
         } catch {
           // ignore corrupt session data
         }
@@ -107,6 +120,9 @@ const Index = () => {
       setGrandTotal(nextTotal);
       setSelectedCurrency(nextCurrency);
       setIsGuideUltime(nextGuide);
+      setProcedureType(nextProcedure.type);
+      setDestinationCountry(nextProcedure.country);
+      setIncludesVisa(nextProcedure.visa);
       hydratedRef.current = true;
     };
 
@@ -126,13 +142,21 @@ const Index = () => {
       grandTotal: parseAmountInput(grandTotal),
       selectedCurrency,
       isGuideUltime,
+      procedureType,
+      destinationCountry,
+      includesVisa,
     };
     try {
       sessionStorage.setItem("formData", JSON.stringify(formData));
     } catch {
       // Safari private mode blocks storage writes — draft saving is optional
     }
-  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency, isGuideUltime]);
+  }, [clientInfo, invoice, service, selectedPayments, salesRep, grandTotal, selectedCurrency, isGuideUltime, procedureType, destinationCountry, includesVisa]);
+
+  // Un commercial rattaché à son compte facture toujours en son nom (imposé aussi côté serveur)
+  useEffect(() => {
+    if (salesRepLocked) setSalesRep(linkedSalesRep);
+  }, [salesRepLocked, linkedSalesRep, salesRep]);
 
   const handleInputChange = (setter) => (e) => {
     const { name, value } = e.target;
@@ -150,8 +174,10 @@ const Index = () => {
       service: saleService,
       salesRep,
       grandTotal: saleAmount,
+      procedureType,
+      requireProcedure: !isGuideUltime,
     }),
-    [clientInfo, invoice, saleService, salesRep, saleAmount]
+    [clientInfo, invoice, saleService, salesRep, saleAmount, procedureType, isGuideUltime]
   );
   const canGenerate = missingFields.length === 0 && !submitting;
 
@@ -207,7 +233,13 @@ const Index = () => {
           service_description: isGuideUltime ? GUIDE_ULTIME.label : sanitizeText(validated.service),
           amount: isGuideUltime ? GUIDE_ULTIME.price : validated.amount,
           currency: saleCurrency,
-          ...(isGuideUltime ? { product_code: GUIDE_ULTIME.productCode } : {}),
+          ...(isGuideUltime
+            ? { product_code: GUIDE_ULTIME.productCode }
+            : {
+                procedure_type: procedureType,
+                destination_country: sanitizeText(destinationCountry.trim()) || null,
+                includes_visa: includesVisa,
+              }),
           payment_type: (Array.isArray(selectedPayments) ? selectedPayments : ['USA']).join(','),
           sales_representative: salesRep,
           template_number: templateNumber,
@@ -284,7 +316,7 @@ const Index = () => {
     });
     setService("Formation en développement web - Programme complet de 6 mois");
     setSelectedPayments(["France"]);
-    setSalesRep("Josphin");
+    if (!salesRepLocked) setSalesRep("Josphin");
     setGrandTotal('1500');
     setIsGuideUltime(false);
   };
@@ -296,9 +328,12 @@ const Index = () => {
     setInvoice({ date: todayISODate(), number });
     setService("");
     setSelectedPayments(["USA"]);
-    setSalesRep("");
+    if (!salesRepLocked) setSalesRep("");
     setGrandTotal('');
     setIsGuideUltime(false);
+    setProcedureType("");
+    setDestinationCountry("");
+    setIncludesVisa(false);
     sessionStorage.removeItem("formData");
     hydratedRef.current = true;
   };
@@ -413,6 +448,17 @@ const Index = () => {
                 </button>
               </div>
 
+              {!isGuideUltime && (
+                <ProcedureSection
+                  procedureType={procedureType}
+                  onProcedureTypeChange={setProcedureType}
+                  destinationCountry={destinationCountry}
+                  onDestinationCountryChange={setDestinationCountry}
+                  includesVisa={includesVisa}
+                  onIncludesVisaChange={setIncludesVisa}
+                />
+              )}
+
               <ServiceSection
                 service={saleService}
                 handleServiceChange={(e) => setService(e.target.value)}
@@ -447,7 +493,7 @@ const Index = () => {
                 }}
               />
 
-              <SalesRepSection salesRep={salesRep} handleSalesRepChange={setSalesRep} />
+              <SalesRepSection salesRep={salesRep} handleSalesRepChange={setSalesRep} locked={salesRepLocked} />
             </form>
           </div>
 

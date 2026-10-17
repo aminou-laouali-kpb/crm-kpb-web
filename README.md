@@ -44,8 +44,12 @@ VITE_SUPABASE_PUBLISHABLE_KEY=eyJ...
 | `commercial` | Créer/voir ses factures, CRM, dashboard |
 | `comptable` | + Comptabilité (dépenses, exports) |
 | `admin` | Accès complet, logs, paramètres, gestion rôles |
+| `agent` | Espace Dossiers uniquement |
+| `contractuel` | Espace Dossiers uniquement, limité aux procédures de son périmètre |
 
-Les nouveaux comptes reçoivent automatiquement le rôle `commercial` (trigger Supabase).
+Les comptes sont créés par un admin dans **Paramètres → Utilisateurs et accès** (fonction `admin-users`). Une inscription spontanée ne reçoit aucun rôle : le compte reste « en attente d'activation ». Un commercial rattaché à son compte facture toujours en son propre nom.
+
+Une facture payée est verrouillée côté base : seul un admin peut en changer le statut, le montant ou la devise. Le passage en « payée » exige un reçu.
 
 ## Parcours utilisateur
 
@@ -61,7 +65,7 @@ Les nouveaux comptes reçoivent automatiquement le rôle `commercial` (trigger S
 generated → sent → awaiting_payment → to_follow_up → paid
 ```
 
-Les factures non mises à jour après le seuil configuré (défaut : 7 jours) passent automatiquement en « À relancer ».
+Les factures non mises à jour après le plus petit seuil configuré (défaut : 7 jours, réglable dans Paramètres pour toute l'équipe) passent automatiquement en « À relancer ».
 
 ## Règles de commission
 

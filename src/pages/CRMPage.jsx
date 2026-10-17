@@ -10,8 +10,10 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { MONTHS, getAvailableYears } from '@/constants/months';
 import { PAYMENT_FILTER_OPTIONS, PAYMENT_CRM_OPTIONS, invoiceMatchesPaymentFilter } from '@/constants/paymentMethods';
 import { STATUS_LABELS, STATUS_COLORS } from '@/constants/invoiceStatuses';
-import { getFollowUpDays, getFollowUpLevel } from '@/constants/followUpConfig';
-import { useInvoices, useUpdateInvoice, useDeleteInvoice } from '@/hooks/useInvoices';
+import { getFollowUpLevel, getPrimaryFollowUpThreshold } from '@/constants/followUpConfig';
+import { useFollowUpDays } from '@/hooks/useFollowUpDays';
+import { useProcedureTypes } from '@/hooks/useProcedureTypes';
+import { useInvoices } from '@/hooks/useInvoices';
 import { useSendContractFromInvoice } from '@/hooks/useClients';
 import { useSalesRepNames } from '@/hooks/useSalesReps';
 import AppLayout from '@/components/layout/AppLayout';
@@ -54,8 +56,8 @@ const CRMPage = () => {
   const { isAdmin } = useAdminCheck();
   const salesRepNames = useSalesRepNames();
   const { data: invoices = [], isLoading: loading, refetch } = useInvoices();
-  const updateInvoiceMutation = useUpdateInvoice();
-  const deleteInvoiceMutation = useDeleteInvoice();
+  const { followUpDays, loading: followUpLoading } = useFollowUpDays();
+  const { data: procedureTypes = [] } = useProcedureTypes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSalesRep, setFilterSalesRep] = useState('all');
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all');
@@ -90,20 +92,24 @@ const CRMPage = () => {
     client_last_name: '',
     client_email: '',
     client_whatsapp: '',
-    amount: ''
+    amount: '',
+    procedure_type: ''
   });
 
   useEffect(() => {
-    checkAndUpdateStaleInvoices();
-  }, []);
+    if (!followUpLoading) checkAndUpdateStaleInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followUpLoading]);
+
+  // Une facture payée n'est modifiable (statut, montant) que par un admin
+  const isLockedForUser = (invoice) => invoice?.status === 'paid' && !isAdmin;
 
   const fetchInvoices = () => refetch();
 
   const checkAndUpdateStaleInvoices = async () => {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
-      const followUpDays = getFollowUpDays().sort((a, b) => b - a);
-      const primaryThreshold = followUpDays[0] || 7;
+      const primaryThreshold = getPrimaryFollowUpThreshold(followUpDays);
       const thresholdDate = new Date();
       thresholdDate.setDate(thresholdDate.getDate() - primaryThreshold);
 
@@ -154,8 +160,16 @@ const CRMPage = () => {
       toast.success("Statut mis à jour avec succès");
       fetchInvoices();
     } catch (error) {
-      toast.error("Erreur lors de la mise à jour du statut");
+      toast.error(error?.message || "Erreur lors de la mise à jour du statut");
     }
+  };
+
+  const resetPaymentDialog = () => {
+    setPendingStatusChange(null);
+    setSelectedPaymentMethod('');
+    setReceiptFile(null);
+    setIsPartial(false);
+    setPartialForm({ total_amount: '', remaining_amount: '', due_date: '' });
   };
 
   const handlePaymentConfirm = async () => {
@@ -256,7 +270,7 @@ const CRMPage = () => {
         });
       }
     } catch (error) {
-      toast.error("Erreur lors de la mise à jour");
+      toast.error(error?.message || "Erreur lors de la mise à jour");
     } finally {
       setUploadingReceipt(false);
     }
@@ -335,7 +349,8 @@ const CRMPage = () => {
       client_last_name: invoice.client_last_name,
       client_email: invoice.client_email,
       client_whatsapp: invoice.client_whatsapp,
-      amount: invoice.amount
+      amount: String(invoice.amount ?? ''),
+      procedure_type: invoice.procedure_type || ''
     });
     setEditDialogOpen(true);
   };
@@ -381,7 +396,8 @@ const CRMPage = () => {
           client_last_name: validated.client_last_name,
           client_email: validated.client_email.toLowerCase(),
           client_whatsapp: validated.client_whatsapp,
-          amount: parseFloat(validated.amount)
+          procedure_type: editForm.procedure_type || null,
+          ...(isLockedForUser(selectedInvoice) ? {} : { amount: parseFloat(validated.amount) })
         })
         .eq('id', selectedInvoice.id);
 
@@ -404,7 +420,7 @@ const CRMPage = () => {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
       } else {
-        toast.error("Erreur lors de la modification de la facture");
+        toast.error(error?.message || "Erreur lors de la modification de la facture");
       }
     }
   };
@@ -460,7 +476,7 @@ const CRMPage = () => {
   };
 
   const isStale = (lastStatusChange, status) =>
-    getFollowUpLevel(lastStatusChange, status) !== null;
+    getFollowUpLevel(lastStatusChange, status, followUpDays) !== null;
 
   // Extract unique services from invoices
   const uniqueServices = useMemo(() => {
@@ -481,10 +497,11 @@ const CRMPage = () => {
 
   const filteredInvoices = useMemo(() => {
     const filtered = invoices.filter((invoice) => {
+      const term = searchTerm.toLowerCase();
       const matchesSearch =
-        invoice.client_first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.client_last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
+        !term ||
+        [invoice.client_first_name, invoice.client_last_name, invoice.invoice_number]
+          .some((value) => String(value || '').toLowerCase().includes(term));
 
       const matchesSalesRep = filterSalesRep === 'all' || invoice.sales_representative === filterSalesRep;
       const matchesStatus = filterStatus === 'all' || invoice.status === filterStatus;
@@ -763,6 +780,7 @@ const CRMPage = () => {
                   <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                     <Select
                       value={invoice.status}
+                      disabled={isLockedForUser(invoice)}
                       onValueChange={(value) => handleStatusChange(invoice.id, value, invoice.payment_type, invoice)}
                     >
                       <SelectTrigger className={`w-32 md:w-48 text-xs md:text-sm ${STATUS_COLORS[invoice.status]}`}>
@@ -922,8 +940,31 @@ const CRMPage = () => {
                 type="number"
                 step="0.01"
                 value={editForm.amount}
+                disabled={isLockedForUser(selectedInvoice)}
                 onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
               />
+              {isLockedForUser(selectedInvoice) && (
+                <p className="text-xs text-muted-foreground">
+                  Facture payée : seul un administrateur peut modifier le montant.
+                </p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="procedure_type">Type de procédure</Label>
+              <Select
+                value={editForm.procedure_type || 'none'}
+                onValueChange={(value) => setEditForm({ ...editForm, procedure_type: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger id="procedure_type">
+                  <SelectValue placeholder="Non renseigné" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Non renseigné</SelectItem>
+                  {procedureTypes.filter((t) => t.active || t.code === editForm.procedure_type).map((t) => (
+                    <SelectItem key={t.code} value={t.code}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           {selectedInvoice && (
@@ -984,11 +1025,7 @@ const CRMPage = () => {
       {/* Payment Confirmation Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={(open) => {
         setPaymentDialogOpen(open);
-        if (!open) {
-          setPendingStatusChange(null);
-          setSelectedPaymentMethod('');
-          setReceiptFile(null);
-        }
+        if (!open) resetPaymentDialog();
       }}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1086,9 +1123,7 @@ const CRMPage = () => {
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => {
               setPaymentDialogOpen(false);
-              setPendingStatusChange(null);
-              setSelectedPaymentMethod('');
-              setReceiptFile(null);
+              resetPaymentDialog();
             }}>
               Annuler
             </Button>

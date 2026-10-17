@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import AppLayout from '@/components/layout/AppLayout';
 import { useAdminCheck } from '../hooks/useAdminCheck';
+import { useAuth } from '../hooks/useAuth';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Activity, Filter } from 'lucide-react';
 import {
@@ -42,6 +43,7 @@ const ActivityLogsPage = () => {
   const { loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdminCheck();
   const [logs, setLogs] = useState([]);
+  const [userNames, setUserNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [filterAction, setFilterAction] = useState('all');
   const [filterTable, setFilterTable] = useState('all');
@@ -67,6 +69,10 @@ const ActivityLogsPage = () => {
 
       if (error) throw error;
       setLogs(data || []);
+
+      // Noms des utilisateurs (table profiles, lot 1) — facultatif
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, email');
+      setUserNames(Object.fromEntries((profiles || []).map((p) => [p.user_id, p.full_name || p.email])));
     } catch (error) {
       toast.error("Erreur lors du chargement des logs");
     } finally {
@@ -150,8 +156,8 @@ const ActivityLogsPage = () => {
                       hour: '2-digit', minute: '2-digit'
                     })}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-foreground font-mono text-xs">
-                    {log.user_id?.substring(0, 8)}...
+                  <td className="px-4 py-3 whitespace-nowrap text-foreground text-xs">
+                    {userNames[log.user_id] || (log.user_id ? <span className="font-mono">{log.user_id.substring(0, 8)}...</span> : 'Système')}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-800'}`}>
