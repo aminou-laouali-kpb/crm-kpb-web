@@ -57,6 +57,13 @@
       "when": 1790890283646,
       "tag": "0007_fondations_securite",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790890343646,
+      "tag": "0008_dossiers",
+      "breakpoints": true
     }
   ]
 }
