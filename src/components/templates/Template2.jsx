@@ -2,6 +2,7 @@ import React from 'react';
 import BaseTemplate from './BaseTemplate';
 import { formatCurrency } from '../../utils/formatCurrency';
 import PaymentDetailsBlock from '../PaymentDetailsBlock';
+import InvoiceAmountSummary from '../InvoiceAmountSummary';
 import InvoicePaymentWarning from '../InvoicePaymentWarning';
 import InvoiceVerificationQR from '../InvoiceVerificationQR';
 import kpbLogo from '../../assets/kpb-logo.png';
@@ -16,7 +17,9 @@ const Template2 = ({ data = {} }) => {
     // Support both old format (type: 'USA') and new format (types: ['USA', 'Wave'])
     salesRep = '',
     selectedCurrency = 'XOF',
-    grandTotal = 0
+    grandTotal = 0,
+    totalOffer = null,
+    remainingAmount = null
   } = data;
 
   return (
@@ -64,6 +67,8 @@ const Template2 = ({ data = {} }) => {
             <span className="text-3xl font-bold">{formatCurrency(grandTotal, selectedCurrency)}</span>
           </div>
         </div>
+
+        <InvoiceAmountSummary totalOffer={totalOffer} amount={grandTotal} remaining={remainingAmount} currency={selectedCurrency} />
 
         {/* Payment Information */}
         <div className="bg-white rounded-lg shadow-md p-4">
