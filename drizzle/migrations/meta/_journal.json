@@ -85,6 +85,13 @@
       "when": 1793190208409,
       "tag": "0011_invoice_offer_amounts",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793191542268,
+      "tag": "0012_restrict_reference_tables_to_staff",
+      "breakpoints": true
     }
   ]
 }
