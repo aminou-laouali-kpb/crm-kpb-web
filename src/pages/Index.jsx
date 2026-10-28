@@ -35,6 +35,7 @@ const Index = () => {
   const [selectedPayments, setSelectedPayments] = useState(["USA"]);
   const [salesRep, setSalesRep] = useState("");
   const [grandTotal, setGrandTotal] = useState('');
+  const [totalOffer, setTotalOffer] = useState('');
   const [isGuideUltime, setIsGuideUltime] = useState(false);
   const [procedureType, setProcedureType] = useState("");
   const [destinationCountry, setDestinationCountry] = useState("");
@@ -164,6 +165,8 @@ const Index = () => {
   };
 
   const amountValue = parseAmountInput(grandTotal);
+  const offerValue = isGuideUltime ? 0 : parseAmountInput(totalOffer);
+  const remainingValue = offerValue > 0 ? Math.max(offerValue - (amountValue || 0), 0) : 0;
   const saleService = isGuideUltime ? GUIDE_ULTIME.label : service;
   const saleAmount = isGuideUltime ? GUIDE_ULTIME.price : amountValue;
   const saleCurrency = isGuideUltime ? GUIDE_ULTIME.currency : selectedCurrency;
@@ -233,6 +236,8 @@ const Index = () => {
           service_description: isGuideUltime ? GUIDE_ULTIME.label : sanitizeText(validated.service),
           amount: isGuideUltime ? GUIDE_ULTIME.price : validated.amount,
           currency: saleCurrency,
+          total_offer_amount: offerValue > 0 ? offerValue : null,
+          remaining_amount: offerValue > 0 ? remainingValue : null,
           ...(isGuideUltime
             ? { product_code: GUIDE_ULTIME.productCode }
             : {
@@ -280,6 +285,8 @@ const Index = () => {
         selectedPayments,
         salesRep,
         grandTotal: saleAmount,
+        totalOffer: offerValue > 0 ? offerValue : null,
+        remainingAmount: offerValue > 0 ? remainingValue : null,
         selectedCurrency: saleCurrency,
         isGuideUltime,
         invoiceNumberConsumed: true,
@@ -465,8 +472,25 @@ const Index = () => {
                 disabled={isGuideUltime}
               />
 
+              {!isGuideUltime && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-2">📌 Montant total de l'offre</h3>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={totalOffer}
+                    onChange={(e) => setTotalOffer(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ex: 350000 (prix complet du pack)"
+                  />
+                  <p className="mt-2 text-sm text-gray-600">
+                    {offerValue > 0 ? formatCurrency(offerValue, saleCurrency) : 'Optionnel — à remplir si paiement en plusieurs tranches'}
+                  </p>
+                </div>
+              )}
+
               <div className="mb-6">
-                <h3 className="text-lg font-medium mb-2">Montant total</h3>
+                <h3 className="text-lg font-medium mb-2">📌 Montant à payer</h3>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -484,6 +508,18 @@ const Index = () => {
                     : 'Saisissez le montant'}
                 </p>
               </div>
+
+              {offerValue > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-2">📌 Montant restant</h3>
+                  <div className="w-full p-3 border border-gray-300 rounded-md bg-muted font-semibold">
+                    {formatCurrency(remainingValue, saleCurrency)}
+                  </div>
+                  {amountValue > offerValue && (
+                    <p className="mt-2 text-sm text-destructive">Le montant à payer dépasse le total de l'offre.</p>
+                  )}
+                </div>
+              )}
 
               <PaymentTypeSection
                 selectedPayments={Array.isArray(selectedPayments) ? selectedPayments : ['USA']}
