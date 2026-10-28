@@ -1041,10 +1041,12 @@ export type Database = {
           procedure_type: string | null
           product_code: string | null
           receipt_url: string | null
+          remaining_amount: number | null
           sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status: Database["public"]["Enums"]["invoice_status"]
           template_number: number
+          total_offer_amount: number | null
           updated_at: string
           user_id: string
         }
@@ -1067,10 +1069,12 @@ export type Database = {
           procedure_type?: string | null
           product_code?: string | null
           receipt_url?: string | null
+          remaining_amount?: number | null
           sales_representative: Database["public"]["Enums"]["sales_rep"]
           service_description: string
           status?: Database["public"]["Enums"]["invoice_status"]
           template_number: number
+          total_offer_amount?: number | null
           updated_at?: string
           user_id: string
         }
@@ -1093,10 +1097,12 @@ export type Database = {
           procedure_type?: string | null
           product_code?: string | null
           receipt_url?: string | null
+          remaining_amount?: number | null
           sales_representative?: Database["public"]["Enums"]["sales_rep"]
           service_description?: string
           status?: Database["public"]["Enums"]["invoice_status"]
           template_number?: number
+          total_offer_amount?: number | null
           updated_at?: string
           user_id?: string
         }

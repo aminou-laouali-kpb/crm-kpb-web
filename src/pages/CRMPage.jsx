@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature } from 'lucide-react';
+import { Search, Pencil, Trash2, RotateCcw, Upload, FileDown, ChevronLeft, ChevronRight, ArrowUpDown, Receipt, FileSignature, FileCheck } from 'lucide-react';
 import { useAdminCheck } from '../hooks/useAdminCheck';
 import { supabase } from '@/integrations/supabase/client';
+import { downloadQuittance } from '@/utils/paymentQuittance';
 import { z } from 'zod';
 import { formatCurrency } from '../utils/formatCurrency';
 import { MONTHS, getAvailableYears } from '@/constants/months';
@@ -260,6 +261,22 @@ const CRMPage = () => {
       setSelectedPaymentMethod('');
       setReceiptFile(null);
       fetchInvoices();
+
+      if (paidInvoice) {
+        toast.success("Quittance prête", {
+          description: "Téléchargez le reçu de paiement à envoyer au client.",
+          action: {
+            label: "Télécharger",
+            onClick: () => downloadQuittance({
+              ...paidInvoice,
+              status: 'paid',
+              payment_type: selectedPaymentMethod || paidInvoice.payment_type,
+              last_status_change: new Date().toISOString(),
+            }),
+          },
+          duration: 20000,
+        });
+      }
 
       // Contrat électronique : rappelé au paiement s'il n'est pas encore signé
       if (paidInvoice && contractStateByInvoice[paidInvoiceId] !== 'signe' && !isGuideUltime(paidInvoice)) {
@@ -777,6 +794,17 @@ const CRMPage = () => {
                           title="Voir le reçu"
                         >
                           <Receipt className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                        </Button>
+                      )}
+                      {invoice.status === 'paid' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => downloadQuittance(invoice).catch(() => toast.error("Impossible de générer la quittance"))}
+                          className="p-1 md:p-2"
+                          title="Télécharger la quittance"
+                        >
+                          <FileCheck className="h-3 w-3 md:h-4 md:w-4 text-emerald-600" />
                         </Button>
                       )}
                       {!isGuideUltime(invoice) && (() => {
