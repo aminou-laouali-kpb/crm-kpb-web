@@ -1,0 +1,1 @@
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS total_offer_amount numeric, ADD COLUMN IF NOT EXISTS remaining_amount numeric;

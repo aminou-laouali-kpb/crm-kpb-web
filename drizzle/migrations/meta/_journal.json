@@ -78,6 +78,13 @@
       "when": 1792316720508,
       "tag": "0010_0006_prerequis_et_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793190208409,
+      "tag": "0011_invoice_offer_amounts",
+      "breakpoints": true
     }
   ]
 }
