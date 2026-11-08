@@ -105,7 +105,7 @@ const Index = () => {
 
       if (nextGuide) {
         nextService = GUIDE_ULTIME.label;
-        nextTotal = String(GUIDE_ULTIME.price);
+        if (!nextTotal) nextTotal = String(GUIDE_ULTIME.price);
         nextCurrency = GUIDE_ULTIME.currency;
       }
 
@@ -444,7 +444,7 @@ const Index = () => {
                   <span className="flex-1 min-w-0">
                     <span className="font-semibold">{GUIDE_ULTIME.buttonLabel}</span>
                     <span className="block text-sm text-muted-foreground mt-1">
-                      {GUIDE_ULTIME.label} — {formatCurrency(GUIDE_ULTIME.price, GUIDE_ULTIME.currency, 0)}
+                      {GUIDE_ULTIME.label} — prix libre (standard {formatCurrency(GUIDE_ULTIME.price, GUIDE_ULTIME.currency, 0)})
                     </span>
                     {isGuideUltime && (
                       <span className="block text-sm font-medium text-primary mt-1">
