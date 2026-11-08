@@ -105,7 +105,7 @@ const Index = () => {
 
       if (nextGuide) {
         nextService = GUIDE_ULTIME.label;
-        nextTotal = String(GUIDE_ULTIME.price);
+        if (!nextTotal) nextTotal = String(GUIDE_ULTIME.price);
         nextCurrency = GUIDE_ULTIME.currency;
       }
 
@@ -168,7 +168,7 @@ const Index = () => {
   const offerValue = isGuideUltime ? 0 : parseAmountInput(totalOffer);
   const remainingValue = offerValue > 0 ? Math.max(offerValue - (amountValue || 0), 0) : 0;
   const saleService = isGuideUltime ? GUIDE_ULTIME.label : service;
-  const saleAmount = isGuideUltime ? GUIDE_ULTIME.price : amountValue;
+  const saleAmount = amountValue;
   const saleCurrency = isGuideUltime ? GUIDE_ULTIME.currency : selectedCurrency;
   const missingFields = useMemo(
     () => getMissingInvoiceFields({
@@ -234,7 +234,7 @@ const Index = () => {
           client_email: validated.email,
           client_whatsapp: validated.whatsapp,
           service_description: isGuideUltime ? GUIDE_ULTIME.label : sanitizeText(validated.service),
-          amount: isGuideUltime ? GUIDE_ULTIME.price : validated.amount,
+          amount: validated.amount,
           currency: saleCurrency,
           total_offer_amount: offerValue > 0 ? offerValue : null,
           remaining_amount: offerValue > 0 ? remainingValue : null,
@@ -444,7 +444,7 @@ const Index = () => {
                   <span className="flex-1 min-w-0">
                     <span className="font-semibold">{GUIDE_ULTIME.buttonLabel}</span>
                     <span className="block text-sm text-muted-foreground mt-1">
-                      {GUIDE_ULTIME.label} — {formatCurrency(GUIDE_ULTIME.price, GUIDE_ULTIME.currency, 0)}
+                      {GUIDE_ULTIME.label} — prix libre (standard {formatCurrency(GUIDE_ULTIME.price, GUIDE_ULTIME.currency, 0)})
                     </span>
                     {isGuideUltime && (
                       <span className="block text-sm font-medium text-primary mt-1">
@@ -490,17 +490,27 @@ const Index = () => {
               )}
 
               <div className="mb-6">
-                <h3 className="text-lg font-medium mb-2">📌 Montant à payer</h3>
+                <h3 className="text-lg font-medium mb-2">📌 {isGuideUltime ? 'Prix de vente du guide' : 'Montant à payer'}</h3>
+                {isGuideUltime && (
+                  <button
+                    type="button"
+                    onClick={() => setGrandTotal(String(GUIDE_ULTIME.price))}
+                    className={`mb-2 px-3 py-1.5 rounded-md border text-sm font-medium ${
+                      amountValue === GUIDE_ULTIME.price
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-primary text-primary'
+                    }`}
+                  >
+                    {formatCurrency(GUIDE_ULTIME.price, GUIDE_ULTIME.currency, 0)} (prix standard)
+                  </button>
+                )}
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={isGuideUltime ? String(GUIDE_ULTIME.price) : grandTotal}
+                  value={grandTotal}
                   onChange={(e) => setGrandTotal(e.target.value)}
-                  disabled={isGuideUltime}
-                  className={`w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isGuideUltime ? 'bg-muted cursor-not-allowed opacity-80' : ''
-                  }`}
-                  placeholder="Ex: 150000"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={isGuideUltime ? 'Ou saisissez le prix de vente' : 'Ex: 150000'}
                 />
                 <p className="mt-2 text-sm text-gray-600">
                   {saleAmount > 0

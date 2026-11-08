@@ -151,3 +151,14 @@ describe('commissionCalculations', () => {
     expect(data[0].netSales).toBe(855000);
   });
 });
+
+describe('Guide ultime à prix variable', () => {
+  it('garde 1 000 XOF de commission quel que soit le prix de vente', async () => {
+    const { calculateLeaderboardData } = await import('@/utils/commissionCalculations');
+    const d = new Date(2026, 10, 5).toISOString();
+    const inv = (amount) => ({ sales_representative: 'Nadia', status: 'paid', last_status_change: d, amount, payment_type: 'Wave', product_code: 'guide_ultime' });
+    const data = calculateLeaderboardData([inv(5000), inv(15000)], { startDate: new Date(2026, 10, 1), endDate: new Date(2026, 10, 30) }, [], ['Nadia']);
+    expect(data[0].commission.guideCommission).toBe(2000);
+    expect(data[0].netSales).toBe(20000);
+  });
+});
